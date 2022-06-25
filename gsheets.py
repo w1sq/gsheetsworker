@@ -1,4 +1,3 @@
-from tokenize import String
 import gspread
 from datetime import datetime,timedelta
 from db.__all_models import Users, Notifications

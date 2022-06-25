@@ -1,6 +1,4 @@
 import asyncio
-from cv2 import resize
-from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -16,7 +14,7 @@ menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Т
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'))
 google_sheets = Google_Sheets()
-bot = Bot(token='1993698586:AAEEOMYkS-aKYSTCNycQkW-GM9NHp_yUgQU')
+bot = Bot(token='5410398881:AAEDNmqdHiGYo5GLd8p3VdjNLmOVMK0jNEM')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 global_init()
@@ -104,15 +102,14 @@ async def send_bills(message):
     user = db_sess.query(Users).get(message.chat.id)
     notifications = db_sess.query(Notifications).all()
     for notification in notifications:
+        reply_markup = InlineKeyboardMarkup()
         if 'заказать' in notification.text:
-            reply_markup = InlineKeyboardMarkup()
             if str(notification.id) in user.muted_notifications:
                 reply_markup.add(InlineKeyboardButton(text='🔕',callback_data=f'unmutenotification {notification.id} {user.id}'))
             else:
                 reply_markup.add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
-            await message.answer(notification.text, reply_markup=reply_markup)
-        else:
-            await message.answer(notification.text)
+        reply_markup.add(InlineKeyboardButton(text='❌',callback_data=f'deletenotification {notification.id}'))
+        await message.answer(f'Уведомление от {notification.date_added.strftime("%d.%m.%Y")}\n' + notification.text, reply_markup=reply_markup)
     db_sess.close()
 
 async def unmutenotification(call):
@@ -123,6 +120,18 @@ async def unmutenotification(call):
     reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification_id} {user_id}'))
     await bot.edit_message_reply_markup(chat_id=call.message.chat.id,message_id=call.message.message_id,reply_markup=reply_markup)
     user.muted_notifications.replace(notification_id,'')
+    db_sess.commit()
+    db_sess.close()
+
+async def deletenotification(call):
+    notification_id = call.data.split()[1]
+    db_sess = create_session()
+    users = db_sess.query(Users).all()
+    for user in users:
+        user.muted_notifications.replace(notification_id,'')
+    notification = db_sess.query(Notifications).get(notification_id)
+    db_sess.delete(notification)
+    await call.answer('Уведомление успешно удалено')
     db_sess.commit()
     db_sess.close()
 
@@ -141,7 +150,8 @@ commands = {
     'show_product' : show_product,
     'show_marketplace' : show_marketplace,
     'unmutenotification' : unmutenotification,
-    'mutenotification' : mutenotification 
+    'mutenotification' : mutenotification,
+    'deletenotification' : deletenotification
 }
 
 async def check_notifications():
@@ -161,6 +171,7 @@ async def check_notifications():
                             await bot.send_message(user.id,notification.text)
             await asyncio.sleep(3600 * 23 + 60*55)
         await asyncio.sleep(60)
+
 
 @dp.callback_query_handler(lambda call: True)
 async def ans(call):

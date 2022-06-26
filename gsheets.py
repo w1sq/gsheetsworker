@@ -122,7 +122,7 @@ class Google_Sheets():
             search_pos_old = int2(all_data[row-5][30+alph_delta])
             if search_pos and search_pos_old and search_pos_old < search_pos:
                 key = re.search(re.compile(r'\".+\"'), self.worksheet.acell(self.keys_coords[product]).value).group(0).replace('"','')
-                notifications.append(f"⚡️ Внимание: у товара «{product}» упал в поиске по запросу «{key}» с {search_pos_old} места на {search_pos} место")
+                notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске по запросу «{key}» с {search_pos_old} места на {search_pos} место")
         return notifications
     
     def get_sell_pos_notification(self, notifications, db_sess:Session):

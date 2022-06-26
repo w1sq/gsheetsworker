@@ -8,13 +8,13 @@ from db.db_session import global_init, create_session
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
-
+from config import tg_bot_token
 
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'))
 google_sheets = Google_Sheets()
-bot = Bot(token='5366145583:AAFaZs2w5T_Yb8yXIvK94CRcbf92O788bFs')
+bot = Bot(token=tg_bot_token)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 global_init()

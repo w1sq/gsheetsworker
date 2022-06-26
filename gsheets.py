@@ -4,7 +4,7 @@ from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
 from sqlalchemy.orm import Session
 import re
-
+from config import gsheet_token
 def float1(string:str):
     try:
         string = float(string.replace(',','.'))
@@ -41,7 +41,7 @@ def get_plus(number:float):
 class Google_Sheets():
     def __init__(self) -> None:
         self.gc = gspread.service_account(filename='service_key.json')
-        self.sheets = self.gc.open_by_key('18quNEEQI83xdZ9B0M4gEqt2a8pScfyDmSRKbCcLr3cs')
+        self.sheets = self.gc.open_by_key(gsheet_token)
         self.worksheet = self.sheets.get_worksheet(0)
         self.worksheet_roadmap = self.sheets.get_worksheet(2)
         self.worksheet_bills = self.sheets.get_worksheet(3)

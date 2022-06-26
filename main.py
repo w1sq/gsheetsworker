@@ -7,14 +7,14 @@ from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
 from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
+import aiogram
 
 
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'))
 google_sheets = Google_Sheets()
-bot = Bot(token='5410398881:AAEDNmqdHiGYo5GLd8p3VdjNLmOVMK0jNEM')
+bot = Bot(token='5366145583:AAFaZs2w5T_Yb8yXIvK94CRcbf92O788bFs')
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 global_init()
@@ -160,15 +160,19 @@ async def check_notifications():
         if datetime.now().hour == 11:
             notifications = google_sheets.get_updates()
             users = db_sess.query(Users).all()
-            for user in users:
-                for notification in notifications:
-                    notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+            for notification in notifications:
+                notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+                for user in users:
                     if str(notification.id) not in user.muted_notifications:
-                        if 'заказать' in notification.text:
-                            reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
-                            await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        else:
-                            await bot.send_message(user.id,notification.text)
+                        try:
+                            if 'заказать' in notification.text:
+                                reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
+                                await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
+                            else:
+                                await bot.send_message(user.id,notification.text)
+                        except aiogram.utils.exceptions.ChatNotFound:
+                            pass
+                await asyncio.sleep(300)
             await asyncio.sleep(3600 * 23 + 60*55)
         await asyncio.sleep(60)
 

@@ -1,2 +1,0 @@
-tg_bot_token='5366145583:AAFaZs2w5T_Yb8yXIvK94CRcbf92O788bFs'
-gsheet_token = '18quNEEQI83xdZ9B0M4gEqt2a8pScfyDmSRKbCcLr3cs'

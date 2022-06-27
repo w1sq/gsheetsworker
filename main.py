@@ -1,12 +1,10 @@
 import asyncio
-from tkinter import N
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from gsheets import Google_Sheets
 from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
-from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
 from config import tg_bot_token

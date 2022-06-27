@@ -1,5 +1,7 @@
 import gspread
 from datetime import datetime,timedelta
+
+from numpy import product
 from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
 from sqlalchemy.orm import Session
@@ -38,6 +40,11 @@ def get_plus(number:float):
         return '+'+str(round(number,3))
     return str(round(number,3)) 
 
+def get_plus2(number):
+    if number < 0:
+        return '+'+str(number * (-1))
+    return str(number)
+
 class Google_Sheets():
     def __init__(self) -> None:
         self.gc = gspread.service_account(filename='service_key.json')
@@ -50,7 +57,17 @@ class Google_Sheets():
         self.weekdays = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
         self.keys_coords = {'Массажное масло':'R1', 'Спрей для волос':'AG1', 'Масло для волос':'AV1', 'Крем для тела':'BK1', 'Крем для ног':'BZ1', 'Маска для волос':'CO1', 'Кератолитик':'DD1'}
 
-    def get_last_date(self):
+    def get_last_date_conversions(self, worksheet):
+        i = 0
+        while True:
+            delta = timedelta(days=i)
+            date = (datetime.today()- delta).strftime('%d.%m.%Y')
+            cell = worksheet.find(date)
+            if worksheet.acell(f'E{cell.row}').value:
+                return date, int(cell.row) -1
+            i += 1
+
+    def get_last_date_main(self):
         i = 0
         while True:
             delta = timedelta(days=i)
@@ -65,20 +82,75 @@ class Google_Sheets():
         worksheet = sheet.get_worksheet(0)
         worksheet.update('A1', 'on')
 
+    def get_conversions_notifications(self):
+        sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
+        worksheet = sheet.get_worksheet(0)
+        date, row = self.get_last_date_conversions(worksheet)
+        wb_message = '⚡️ Рекомендую что-то изменить в карточках на маркетплейсах. У нас низкие конверсии и слабая динамика изменений у товаров:\nWildberries :\nэталон 10% 👉  40% 👉 25%\n\n'
+        ozon_message = '\n\nOZON :\nэталон 50% 👉 5% 👉 40%\n\n'
+        all_data = worksheet.get_all_values()
+        for i in range(2,34):
+            item_name = all_data[1][i]
+            if item_name:
+                all_conversion = all_data[row+6][i+1]
+                ozon_all_conversion = all_data[row+6][i+1+32]
+                if all_conversion and ozon_all_conversion and float(all_conversion[:-1].replace(',','.'))<7 and float(ozon_all_conversion[:-1].replace(',','.'))<2.5:
+                    views = all_data[row][i+1]
+                    clicks = all_data[row+1][i+1]
+                    cart = all_data[row+2][i+1]
+                    ozon_views = all_data[row][i+1+32]
+                    ozon_clicks = all_data[row+1][i+1+32]
+                    ozon_cart = all_data[row+2][i+1+32]
+                    wb_message += f'- {item_name} :\n{views} 👉 {clicks} 👉 {cart}\n'
+                    ozon_message += f'- {item_name} :\n{ozon_views} 👉 {ozon_clicks} 👉 {ozon_cart}\n'
+        return wb_message + ozon_message
+
+    def get_conversions(self):
+        sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
+        worksheet = sheet.get_worksheet(0)
+        marketplaces = {"Wildberries": "Wildberries 10%\n10% 👉  40% 👉 25%","OZON":"OZON 5%\n50% 👉 5% 👉 40%"}
+        date, row = self.get_last_date_conversions(worksheet)
+        main_message = f'Конверсии за {date}\n\n📍 Эталон\nWildberries 10%\n10% 👉  40% 👉 25%\nOZON 5%\n50% 👉 5% 👉 40%\n'
+        all_data = worksheet.get_all_values()
+        for i in range(2,34):
+            item_name = all_data[1][i]
+            if item_name:
+                product_message = f"\n\n{item_name}"
+                views = all_data[row][i+1]
+                clicks = all_data[row+1][i+1]
+                cart = all_data[row+2][i+1]
+                all_conversion = all_data[row+6][i+1]
+                if views and clicks and cart and all_conversion:
+                    product_message += f"\nWildberries {all_conversion}\n{views} 👉 {clicks} 👉 {cart}"
+                else:
+                    product_message += f"\nWildberries данных нет"
+                ozon_views = all_data[row][i+1+32]
+                ozon_clicks = all_data[row+1][i+1+32]
+                ozon_cart = all_data[row+2][i+1+32]
+                ozon_all_conversion = all_data[row+6][i+1+32]
+                if ozon_views and ozon_clicks and ozon_cart and ozon_all_conversion:
+                    product_message += f"\nOZON {ozon_all_conversion}\n{ozon_views} 👉 {ozon_clicks} 👉 {ozon_cart}\n"
+                else:
+                    product_message += f"\nOZON данных нет"
+                main_message += product_message
+        return main_message
+
     def get_updates(self):
         db_sess = create_session()
         notifications = db_sess.query(Notifications).all()
+        date, row = self.get_last_date_main()
+        all_data = self.worksheet.get_all_values()
         for notification in notifications:
             if (datetime.now() - notification.date_added).days > 7:
                 notifications.remove(notification)
                 db_sess.delete(notification)
         notifications = []
-        notifications = self.get_rating_notification(notifications)
-        notifications = self.get_search_pos_notification(notifications)
-        notifications = self.get_sell_pos_notification(notifications, db_sess)
-        notifications = self.get_market_supply_notification(notifications, db_sess)
-        notifications = self.get_fabric_supply_notification(notifications, db_sess)
-        notifications = self.get_vk_and_inst_notification(notifications)
+        notifications = self.get_rating_notification(notifications, all_data, row)
+        notifications = self.get_search_pos_notification(notifications, all_data, row)
+        notifications = self.get_sell_pos_notification(notifications, db_sess, all_data, row)
+        notifications = self.get_market_supply_notification(notifications, db_sess, all_data, row)
+        notifications = self.get_fabric_supply_notification(notifications, db_sess, all_data, row)
+        notifications = self.get_vk_and_inst_notification(notifications, all_data, row)
         db_sess.commit()
         db_sess.close()
         return notifications
@@ -102,44 +174,42 @@ class Google_Sheets():
                 db_sess.add(db_notification)
         db_sess.commit()
 
-    def get_rating_notification(self, notifications):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_rating_notification(self, notifications, all_data, row):
         for product in self.products:
             alph_delta = self.products.index(product) * 15
-            rating = float2(all_data[row][29+alph_delta])
-            rating_old = float2(all_data[row-5][29+alph_delta])
-            if rating and rating_old and rating_old > rating:
-                notifications.append(f"⚡️ Внимание: у товара «{product}» упал рейтинг с {rating_old} до {rating}")
-        return notifications
+            for marketplace in self.marketplaces:
+                delta = self.marketplaces.index(marketplace)
+                rating = float2(all_data[row+delta][29+alph_delta])
+                rating_old = float2(all_data[row-5+delta][29+alph_delta])
+                if rating and rating_old and rating_old > rating:
+                    notifications.append(f"⚡️ Внимание: у товара «{product}» упал рейтинг на {marketplace} с {rating_old} до {rating}")
+            return notifications
 
-    def get_search_pos_notification(self, notifications):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_search_pos_notification(self, notifications, all_data, row):
         for product in self.products:
             alph_delta = self.products.index(product) * 15
-            search_pos = int2(all_data[row][30+alph_delta])
-            search_pos_old = int2(all_data[row-5][30+alph_delta])
-            if search_pos and search_pos_old and search_pos_old < search_pos:
-                key = re.search(re.compile(r'\".+\"'), self.worksheet.acell(self.keys_coords[product]).value).group(0).replace('"','')
-                notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске по запросу «{key}» с {search_pos_old} места на {search_pos} место")
+            for marketplace in self.marketplaces:
+                delta = self.marketplaces.index(marketplace)
+                search_pos = int2(all_data[row+delta][30+alph_delta])
+                search_pos_old = int2(all_data[row-5+delta][30+alph_delta])
+                if search_pos and search_pos_old and search_pos_old < search_pos:
+                    key = re.search(re.compile(r'\".+\"'), self.worksheet.acell(self.keys_coords[product]).value).group(0).replace('"','')
+                    notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске на {marketplace} по запросу «{key}» с {search_pos_old} места на {search_pos} место")
         return notifications
     
-    def get_sell_pos_notification(self, notifications, db_sess:Session):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_sell_pos_notification(self, notifications, db_sess:Session, all_data, row):
         for product in self.products:
             alph_delta = self.products.index(product) * 15
-            sell_pos = int2(all_data[row][31+alph_delta])
-            sell_pos_old = int2(all_data[row-5][31+alph_delta])
-            if sell_pos and sell_pos_old and sell_pos_old < sell_pos:
-                notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
+            for marketplace in self.marketplaces:
+                delta = self.marketplaces.index(marketplace)
+                sell_pos = int2(all_data[row+delta][31+alph_delta])
+                sell_pos_old = int2(all_data[row-5+delta][31+alph_delta])
+                if sell_pos and sell_pos_old and sell_pos_old < sell_pos:
+                    notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
         self.add_to_db(db_sess, notifications)
         return notifications
 
-    def get_market_supply_notification(self, notifications, db_sess:Session):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_market_supply_notification(self, notifications, db_sess:Session, all_data, row):
         local_notifications = {}
         for product in self.products:
             alph_delta = self.products.index(product) * 15
@@ -154,9 +224,7 @@ class Google_Sheets():
             notification_list.append(key + local_notifications[key])
         return notifications + notification_list
 
-    def get_fabric_supply_notification(self, notifications, db_sess:Session):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_fabric_supply_notification(self, notifications, db_sess:Session, all_data, row):
         local_notifications = {}
         for product in self.products:
             alph_delta = self.products.index(product) * 15
@@ -169,9 +237,7 @@ class Google_Sheets():
             notification_list.append(key + local_notifications[key])
         return notifications + notification_list
     
-    def get_vk_and_inst_notification(self, notifications):
-        all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+    def get_vk_and_inst_notification(self, notifications, all_data, row):
         for product in self.products:
             alph_delta = self.products.index(product) * 15
             inst = int2(all_data[row+4][25+alph_delta])
@@ -228,7 +294,7 @@ class Google_Sheets():
     
     def get_marketing(self):
         all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+        date, row = self.get_last_date_main()
         message = f'Данные продвижения за {date}\n\n'
         message += f"1️⃣ ВК подписчиков {int1(all_data[row][8])} ({get_plus(int1(all_data[row][8]) - int1(all_data[row-5][8]))})\n"
         message += f"2️⃣ Вк рекламный бюджет {int1(all_data[row][9])} ({get_plus(int1(all_data[row][9]) - int1(all_data[row-5][9]))})\n"
@@ -241,7 +307,7 @@ class Google_Sheets():
 
     def get_crossplatform(self):
         all_data = self.worksheet.get_all_values()
-        date, row = self.get_last_date()
+        date, row = self.get_last_date_main()
         message = f'Кроссплатформенная аналитика за {date}\n\n'
         no_bloger_order_message = f'\n1️⃣ Чистые заказы без выкупов и блогеров\nВсего {int1(all_data[row+4][305])} ({get_plus(int1(all_data[row+4][305]) - int1(all_data[row-1][305]))}) шт. на {int1(all_data[row+4][304])} р ({get_plus(int1(all_data[row+4][304]) - int1(all_data[row-1][304]))})\n'
         price_message = f'\n2️⃣ Себестоимость\nВсего {int1(all_data[row+4][306])} ({get_plus(int1(all_data[row+4][306]) - int1(all_data[row-1][306]))}) р\n'
@@ -250,8 +316,8 @@ class Google_Sheets():
         order_message = f'\n5️⃣ Заказов:\nВсего {int1(all_data[row+4][310])} ({get_plus(int1(all_data[row+4][310]) - int1(all_data[row-1][310]))}) шт. на {int1(all_data[row+4][309])} р ({get_plus(int1(all_data[row+4][309]) - int1(all_data[row-1][309]))})\n'
         buy_message = f'\n6️⃣ Выкупы всего {int1(all_data[row+4][312])} ({get_plus(int1(all_data[row+4][312]) - int1(all_data[row-1][312]))}) шт. на {int1(all_data[row+4][311])} р ({get_plus(int1(all_data[row+4][311]) - int1(all_data[row-1][311]))})\n\n'
         giveaway_message = f'\n7️⃣ Бесплатные раздачи всего {int1(all_data[row+4][314])} ({get_plus(int1(all_data[row+4][314]) - int1(all_data[row-1][314]))}) шт. на {int1(all_data[row+4][313])} р ({get_plus(int1(all_data[row+4][313]) - int1(all_data[row-1][313]))})\n\n'
-        sell_pos_message = f'\n8️⃣ Конкурентная позиция в продажах:\nВсего {int1(all_data[row+4][322])} ({get_plus(int1(all_data[row+4][322]) - int1(all_data[row-1][322]))})\n'
-        search_pos_message = f'\n9️⃣ Конкурентная позиция в поиске:\nВсего {int1(all_data[row+4][321])} ({get_plus(int1(all_data[row+4][321]) - int1(all_data[row-1][321]))})\n'
+        sell_pos_message = f'\n8️⃣ Конкурентная позиция в продажах:\nВсего {int1(all_data[row+4][322])} ({get_plus2(int1(all_data[row+4][322]) - int1(all_data[row-1][322]))})\n'
+        search_pos_message = f'\n9️⃣ Конкурентная позиция в поиске:\nВсего {int1(all_data[row+4][321])} ({get_plus2(int1(all_data[row+4][321]) - int1(all_data[row-1][321]))})\n'
         reviews_message = f'\n🔟 Отзывов:\nВсего {int1(all_data[row+4][319])} ({get_plus(int1(all_data[row+4][319]) - int1(all_data[row-1][319]))})\n'
         rating_message =  f'\n1️⃣1️⃣ Рейтинг:\nВсего {int1(all_data[row+4][320])} ({get_plus(int1(all_data[row+4][320]) - int1(all_data[row-1][320]))})\n'
         left_message = f'\n1️⃣2️⃣ Остаток:\nВсего {int1(all_data[row+4][315])} ({get_plus(int1(all_data[row+4][315]) - int1(all_data[row-1][315]))})\n'
@@ -286,11 +352,11 @@ class Google_Sheets():
             sell_pos = int2(all_data[row+delta][322])
             if sell_pos:
                 sell_pos_old = int1(all_data[row-5+delta][322])
-                sell_pos_message += f'{marketplace} {sell_pos} ({get_plus(sell_pos - sell_pos_old)})\n'
+                sell_pos_message += f'{marketplace} {sell_pos} ({get_plus2(sell_pos - sell_pos_old)})\n'
             search_pos = int2(all_data[row+delta][321])
             if search_pos:
                 search_pos_old = int1(all_data[row-5+delta][321])
-                search_pos_message += f'{marketplace} {search_pos} ({get_plus(search_pos - search_pos_old)})\n'
+                search_pos_message += f'{marketplace} {search_pos} ({get_plus2(search_pos - search_pos_old)})\n'
             reviews = float2(all_data[row+delta][319])
             if reviews:
                 reviews_old = float1(all_data[row-5+delta][319])
@@ -311,7 +377,7 @@ class Google_Sheets():
         return message
 
     def get_marketplace(self,marketplace):
-        date, row = self.get_last_date()
+        date, row = self.get_last_date_main()
         all_data = self.worksheet.get_all_values()
         row += self.marketplaces.index(marketplace)
         message = f'Всего на {marketplace} за {date}\n\n'
@@ -348,11 +414,11 @@ class Google_Sheets():
             sell_pos = int2(all_data[row][31+alph_delta])
             if sell_pos:
                 sell_pos_old = int1(all_data[row-5][31+alph_delta])
-                sell_pos_message += f'{product} {sell_pos} ({get_plus(sell_pos - sell_pos_old)})\n'
+                sell_pos_message += f'{product} {sell_pos} ({get_plus2(sell_pos - sell_pos_old)})\n'
             search_pos = int2(all_data[row][30+alph_delta])
             if search_pos:
                 search_pos_old = int1(all_data[row-5][30+alph_delta])
-                search_pos_message += f'{product} {search_pos} ({get_plus(search_pos - search_pos_old)})\n'
+                search_pos_message += f'{product} {search_pos} ({get_plus2(search_pos - search_pos_old)})\n'
             rating = float2(all_data[row][29+alph_delta])
             if rating:
                 rating_old = float1(all_data[row-5][29+alph_delta])
@@ -373,7 +439,7 @@ class Google_Sheets():
         return message
 
     def get_item(self,product):
-        date, row = self.get_last_date()
+        date, row = self.get_last_date_main()
         alph_delta = self.products.index(product) * 15
         all_data = self.worksheet.get_all_values()
 
@@ -491,18 +557,18 @@ class Google_Sheets():
 3️⃣ Бесплатные раздачи всего  {giveaway} ({get_plus(giveaway - giveaway_old)}) шт. на {giveaway_rub} р ({get_plus(giveaway_rub - giveaway_rub_old)})
 
 4️⃣ Конкурентная позиция в продажах: 
-ВСЕГО {sell_pos_vsego} ({get_plus(sell_pos_vsego - sell_pos_vsego_old)})
-На Wildberries {sell_pos_wb} ({get_plus(sell_pos_wb - sell_pos_wb_old)})
-На Ozon {sell_pos_ozon} ({get_plus(sell_pos_ozon - sell_pos_ozon_old)})
-На Yandex {sell_pos_yndx} ({get_plus(sell_pos_yndx - sell_pos_yndx_old)})
-На Остальное {sell_pos_ost} ({get_plus(sell_pos_ost- sell_pos_ost_old)})
+ВСЕГО {sell_pos_vsego} ({get_plus2(sell_pos_vsego - sell_pos_vsego_old)})
+На Wildberries {sell_pos_wb} ({get_plus2(sell_pos_wb - sell_pos_wb_old)})
+На Ozon {sell_pos_ozon} ({get_plus2(sell_pos_ozon - sell_pos_ozon_old)})
+На Yandex {sell_pos_yndx} ({get_plus2(sell_pos_yndx - sell_pos_yndx_old)})
+На Остальное {sell_pos_ost} ({get_plus2(sell_pos_ost- sell_pos_ost_old)})
 
 5️⃣Конкурентная позиция в поиске:
-ВСЕГО {search_pos_vsego} ({get_plus(search_pos_vsego - search_pos_vsego_old)})
-На Wildberries {search_pos_wb} ({get_plus(search_pos_wb - search_pos_wb_old)})
-На Ozon {search_pos_ozon} ({get_plus(search_pos_ozon - search_pos_ozon_old)})
-На Yandex {search_pos_yndx} ({get_plus(search_pos_yndx - search_pos_yndx_old)})
-На Остальное {search_pos_ost} ({get_plus(search_pos_ost - search_pos_ost_old)})
+ВСЕГО {search_pos_vsego} ({get_plus2(search_pos_vsego - search_pos_vsego_old)})
+На Wildberries {search_pos_wb} ({get_plus2(search_pos_wb - search_pos_wb_old)})
+На Ozon {search_pos_ozon} ({get_plus2(search_pos_ozon - search_pos_ozon_old)})
+На Yandex {search_pos_yndx} ({get_plus2(search_pos_yndx - search_pos_yndx_old)})
+На Остальное {search_pos_ost} ({get_plus2(search_pos_ost - search_pos_ost_old)})
 
 6️⃣ Отзывов:
 ВСЕГО {reviews_vsego} ({get_plus(reviews_vsego - reviews_vsego_old)})
@@ -538,3 +604,4 @@ class Google_Sheets():
 
 if __name__ == '__main__':
     g_sheets = Google_Sheets()
+    g_sheets.get_conversions()

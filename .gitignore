@@ -1,3 +1,4 @@
-.config.py
-.service_key.json
-.users.db
+config.py
+service_key.json
+users.db
+__pycache__

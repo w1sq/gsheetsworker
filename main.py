@@ -1,4 +1,5 @@
 import asyncio
+from tkinter import N
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,10 +10,10 @@ from datetime import datetime
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
 from config import tg_bot_token
-
+import aioschedule as schedule
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
-        .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'))
+        .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
 google_sheets = Google_Sheets()
 bot = Bot(token=tg_bot_token)
 storage = MemoryStorage()
@@ -33,6 +34,10 @@ async def start(message):
             db_sess.close()
         await message.answer('Меню',reply_markup = menu_keyboard)
 
+@dp.message_handler(text='Конверсия')
+async def send_conversion(message):
+    await bot.send_chat_action(message.chat.id,'typing')
+    await message.answer(google_sheets.get_conversions())
 
 @dp.message_handler(text='Товары')
 async def send_statistics(message):
@@ -154,38 +159,46 @@ commands = {
     'deletenotification' : deletenotification
 }
 
-async def check_notifications():
+async def send_conversion_notifications():
     db_sess = create_session()
-    while True:
-        if datetime.now().hour == 11:
-            notifications = google_sheets.get_updates()
-            users = db_sess.query(Users).all()
-            for notification in notifications:
-                notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
-                for user in users:
-                    if str(notification.id) not in user.muted_notifications:
-                        try:
-                            if 'заказать' in notification.text:
-                                reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
-                                await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                            else:
-                                await bot.send_message(user.id,notification.text)
-                        except aiogram.utils.exceptions.ChatNotFound:
-                            pass
-                await asyncio.sleep(300)
-            await asyncio.sleep(3600 * 23 + 60*55)
-        await asyncio.sleep(60)
+    conversions = google_sheets.get_conversions_notifications()
+    users = db_sess.query(Users).all()
+    for user in users:
+        try:
+            await bot.send_message(user.id,conversions)
+        except aiogram.utils.exceptions.ChatNotFound:
+            pass
 
+async def send_main_notifications():
+    db_sess = create_session()
+    notifications = google_sheets.get_updates()
+    users = db_sess.query(Users).all()
+    for notification in notifications:
+        notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+        for user in users:
+            if str(notification.id) not in user.muted_notifications:
+                try:
+                    if 'заказать' in notification.text:
+                        reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
+                        await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
+                    else:
+                        await bot.send_message(user.id,notification.text)
+                except aiogram.utils.exceptions.ChatNotFound:
+                    pass
+        await asyncio.sleep(300)
 
 @dp.callback_query_handler(lambda call: True)
 async def ans(call):
     await commands[call.data.split()[0]](call)
 
 async def main():
-    await asyncio.gather(dp.start_polling(),check_notifications())
+    await dp.start_polling()
 
 if __name__ == '__main__':
     print('Bot has started')
-
     loop = asyncio.get_event_loop()
+    schedule.every().day.at("11:00").do(send_main_notifications)
+    schedule.every().monday.at("10:00").do(send_conversion_notifications)
+    schedule.every().thursday.at("10:00").do(send_conversion_notifications)
+    loop.create_task(schedule.run_pending())
     loop.run_until_complete(main())

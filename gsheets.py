@@ -205,7 +205,7 @@ class Google_Sheets():
                 sell_pos = int2(all_data[row+delta][31+alph_delta])
                 sell_pos_old = int2(all_data[row-5+delta][31+alph_delta])
                 if sell_pos and sell_pos_old and sell_pos_old < sell_pos:
-                    notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
+                    notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов на {marketplace}. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
         self.add_to_db(db_sess, notifications)
         return notifications
 

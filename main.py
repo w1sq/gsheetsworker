@@ -39,10 +39,9 @@ async def send_message(message):
     db_sess = create_session()
     users = db_sess.query(Users).all()
     db_sess.close()
-    f = InputFile('pic.png')
     for user in users:
         try:
-            await bot.send_photo(user.id, f, text)
+            await bot.send_photo(user.id, InputFile('pic.png'), text)
         except aiogram.utils.exceptions.ChatNotFound:
             pass
 

@@ -39,7 +39,10 @@ async def send_message(message):
     users = db_sess.query(Users).all()
     db_sess.close()
     for user in users:
-        await bot.send_message(user.id, text)
+        try:
+            await bot.send_message(user.id, text)
+        except aiogram.utils.exceptions.ChatNotFound:
+            pass
 
 @dp.message_handler(text='Конверсия')
 async def send_conversion(message):

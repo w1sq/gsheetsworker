@@ -1,4 +1,5 @@
 import asyncio
+from re import T
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -189,8 +190,16 @@ async def send_main_notifications():
 async def ans(call):
     await commands[call.data.split()[0]](call)
 
+
 async def main():
     await dp.start_polling()
+
+
+async def check_schedule():
+    while True:
+        await schedule.run_pending()
+        await asyncio.sleep(1)
+
 
 if __name__ == '__main__':
     print('Bot has started')
@@ -198,5 +207,5 @@ if __name__ == '__main__':
     schedule.every().day.at("11:00").do(send_main_notifications)
     schedule.every().monday.at("10:00").do(send_conversion_notifications)
     schedule.every().thursday.at("10:00").do(send_conversion_notifications)
-    loop.create_task(schedule.run_pending())
+    loop.create_task(check_schedule())
     loop.run_until_complete(main())

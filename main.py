@@ -38,11 +38,12 @@ async def send_message(message):
     db_sess = create_session()
     users = db_sess.query(Users).all()
     db_sess.close()
-    for user in users:
-        try:
-            await bot.send_message(user.id, text)
-        except aiogram.utils.exceptions.ChatNotFound:
-            pass
+    with open('pic.png','rb') as f:
+        for user in users:
+            try:
+                await bot.send_photo(user.id, f, text)
+            except aiogram.utils.exceptions.ChatNotFound:
+                pass
 
 @dp.message_handler(text='Конверсия')
 async def send_conversion(message):

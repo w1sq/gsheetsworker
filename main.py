@@ -210,7 +210,7 @@ async def check_schedule():
 if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
-    schedule.every().day.at("19:00").do(send_main_notifications)
+    schedule.every().day.at("11:00").do(send_main_notifications)
     schedule.every().monday.at("10:00").do(send_conversion_notifications)
     schedule.every().thursday.at("10:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

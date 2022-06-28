@@ -9,6 +9,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
 from config import tg_bot_token
 import aioschedule as schedule
+from aiogram.types import InputFile
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
@@ -38,7 +39,7 @@ async def send_message(message):
     db_sess = create_session()
     users = db_sess.query(Users).all()
     db_sess.close()
-    f = open('pic.png','rb')
+    f = InputFile('pic.png')
     for user in users:
         try:
             await bot.send_photo(user.id, f, text)

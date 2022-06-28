@@ -143,15 +143,14 @@ class Google_Sheets():
                 notifications.remove(notification)
                 db_sess.delete(notification)
         notifications = []
-        notifications = self.get_rating_notification(notifications, all_data, row)
-        notifications = self.get_search_pos_notification(notifications, all_data, row)
-        notifications = self.get_sell_pos_notification(notifications, db_sess, all_data, row)
-        notifications = self.get_market_supply_notification(notifications, db_sess, all_data, row)
-        notifications = self.get_fabric_supply_notification(notifications, db_sess, all_data, row)
-        notifications = self.get_vk_and_inst_notification(notifications, all_data, row)
+        notifications.append(self.get_supply_notification(db_sess, all_data, row))
+        notifications.append(self.get_search_pos_notification(db_sess, all_data, row))
+        notifications.append(self.get_sell_pos_notification(db_sess, all_data, row))
+        notifications.append(self.get_other_notification(db_sess, all_data, row))
         db_sess.commit()
         db_sess.close()
         return notifications
+
 
     def add_to_db(self, db_sess:Session, notifications):
         for notification in notifications:
@@ -172,7 +171,16 @@ class Google_Sheets():
                 db_sess.add(db_notification)
         db_sess.commit()
 
-    def get_rating_notification(self, notifications, all_data, row):
+    def get_other_notification(self, db_sess, all_data, row):
+        other_notifications = []
+        for rating_notification in self.get_rating_notification(db_sess, all_data, row):
+            other_notifications.append(rating_notification)
+        for vk_and_inst_notification in self.get_vk_and_inst_notification(all_data, row):
+            other_notifications.append(vk_and_inst_notification)
+        return other_notifications
+
+    def get_rating_notification(self, db_sess, all_data, row):
+        rating_notifications = []
         for product in self.products:
             alph_delta = self.products.index(product) * 15
             for marketplace in self.marketplaces:
@@ -180,10 +188,12 @@ class Google_Sheets():
                 rating = float2(all_data[row+delta][29+alph_delta])
                 rating_old = float2(all_data[row-5+delta][29+alph_delta])
                 if rating and rating_old and rating_old > rating:
-                    notifications.append(f"⚡️ Внимание: у товара «{product}» упал рейтинг на {marketplace} с {rating_old} до {rating}")
-            return notifications
+                    rating_notifications.append(f"⚡️ Внимание: у товара «{product}» упал рейтинг на {marketplace} с {rating_old} до {rating}")
+        self.add_to_db(db_sess, rating_notifications)
+        return rating_notifications
 
-    def get_search_pos_notification(self, notifications, all_data, row):
+    def get_search_pos_notification(self, db_sess, all_data, row):
+        search_pos_notifications = []
         for product in self.products:
             alph_delta = self.products.index(product) * 15
             for marketplace in self.marketplaces:
@@ -192,10 +202,12 @@ class Google_Sheets():
                 search_pos_old = int2(all_data[row-5+delta][30+alph_delta])
                 if search_pos and search_pos_old and search_pos_old < search_pos:
                     key = re.search(re.compile(r'\".+\"'), self.worksheet.acell(self.keys_coords[product]).value).group(0).replace('"','')
-                    notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске на {marketplace} по запросу «{key}» с {search_pos_old} места на {search_pos} место")
-        return notifications
+                    search_pos_notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске на {marketplace} по запросу «{key}» с {search_pos_old} места на {search_pos} место")
+        self.add_to_db(db_sess, search_pos_notifications)
+        return search_pos_notifications
     
-    def get_sell_pos_notification(self, notifications, db_sess:Session, all_data, row):
+    def get_sell_pos_notification(self, db_sess:Session, all_data, row):
+        sell_pos_notifications = []
         for product in self.products:
             alph_delta = self.products.index(product) * 15
             for marketplace in self.marketplaces:
@@ -203,11 +215,11 @@ class Google_Sheets():
                 sell_pos = int2(all_data[row+delta][31+alph_delta])
                 sell_pos_old = int2(all_data[row-5+delta][31+alph_delta])
                 if sell_pos and sell_pos_old and sell_pos_old < sell_pos:
-                    notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов на {marketplace}. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
-        self.add_to_db(db_sess, notifications)
-        return notifications
+                    sell_pos_notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов на {marketplace}. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
+        self.add_to_db(db_sess, sell_pos_notifications)
+        return sell_pos_notifications
 
-    def get_market_supply_notification(self, notifications, db_sess:Session, all_data, row):
+    def get_market_supply_notification(self, db_sess:Session, all_data, row):
         local_notifications = {}
         for product in self.products:
             alph_delta = self.products.index(product) * 15
@@ -220,9 +232,17 @@ class Google_Sheets():
         notification_list = []
         for key in local_notifications.keys():
             notification_list.append(key + local_notifications[key])
-        return notifications + notification_list
+        return notification_list
 
-    def get_fabric_supply_notification(self, notifications, db_sess:Session, all_data, row):
+    def get_supply_notification(self, db_sess, all_data, row):
+        supply_notifications = []
+        for market_supply_notification in self.get_market_supply_notification(db_sess, all_data, row):
+            supply_notifications.append(market_supply_notification)
+        for fabric_supply_notification in self.get_fabric_supply_notification(db_sess, all_data, row):
+            supply_notifications.append(fabric_supply_notification)
+        return supply_notifications
+
+    def get_fabric_supply_notification(self, db_sess:Session, all_data, row):
         local_notifications = {}
         for product in self.products:
             alph_delta = self.products.index(product) * 15
@@ -233,9 +253,10 @@ class Google_Sheets():
         notification_list = []
         for key in local_notifications.keys():
             notification_list.append(key + local_notifications[key])
-        return notifications + notification_list
+        return notification_list
     
-    def get_vk_and_inst_notification(self, notifications, all_data, row):
+    def get_vk_and_inst_notification(self, all_data, row):
+        vk_and_inst_notifications = []
         for product in self.products:
             alph_delta = self.products.index(product) * 15
             inst = int2(all_data[row+4][25+alph_delta])
@@ -243,10 +264,10 @@ class Google_Sheets():
             vk = int2(all_data[row+4][25+alph_delta])
             vk_old = int2(all_data[row+4][25+alph_delta])
             if inst and inst_old and inst_old > inst:
-                notifications.append(f"⚡️ Внимание: упало число подписчиков в Instagram на {inst_old - inst} человек с {inst_old} до {inst}")
+                vk_and_inst_notifications.append(f"⚡️ Внимание: упало число подписчиков в Instagram на {inst_old - inst} человек с {inst_old} до {inst}")
             if vk and vk_old and vk_old > vk:
-                notifications.append(f"⚡️ Внимание: упало число подписчиков в ВКонтакте на {inst_old - inst} человек с {inst_old} до {inst}")
-        return notifications
+                vk_and_inst_notifications.append(f"⚡️ Внимание: упало число подписчиков в ВКонтакте на {inst_old - inst} человек с {inst_old} до {inst}")
+        return vk_and_inst_notifications
 
     def get_bills(self):
         all_data = self.worksheet_bills.get_all_values()[1:]

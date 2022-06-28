@@ -104,15 +104,18 @@ async def send_bills(message):
     db_sess = create_session()
     user = db_sess.query(Users).get(message.chat.id)
     notifications = db_sess.query(Notifications).all()
-    for notification in notifications:
-        reply_markup = InlineKeyboardMarkup()
-        if 'заказать' in notification.text:
-            if str(notification.id) in user.muted_notifications:
-                reply_markup.add(InlineKeyboardButton(text='🔕',callback_data=f'unmutenotification {notification.id} {user.id}'))
-            else:
-                reply_markup.add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
-        reply_markup.add(InlineKeyboardButton(text='❌',callback_data=f'deletenotification {notification.id}'))
-        await message.answer(f'Уведомление от {notification.date_added.strftime("%d.%m.%Y")}\n' + notification.text, reply_markup=reply_markup)
+    if notifications:
+        for notification in notifications:
+            reply_markup = InlineKeyboardMarkup()
+            if 'заказать' in notification.text:
+                if str(notification.id) in user.muted_notifications:
+                    reply_markup.add(InlineKeyboardButton(text='🔕',callback_data=f'unmutenotification {notification.id} {user.id}'))
+                else:
+                    reply_markup.add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
+            reply_markup.add(InlineKeyboardButton(text='❌',callback_data=f'deletenotification {notification.id}'))
+            await message.answer(f'Уведомление от {notification.date_added.strftime("%d.%m.%Y")}\n' + notification.text, reply_markup=reply_markup)
+    else:
+        await message.answer('Уведомлений пока нет')
     db_sess.close()
 
 async def unmutenotification(call):
@@ -135,6 +138,7 @@ async def deletenotification(call):
     notification = db_sess.query(Notifications).get(notification_id)
     db_sess.delete(notification)
     await call.answer('Уведомление успешно удалено')
+    await call.message.delete()
     db_sess.commit()
     db_sess.close()
 
@@ -166,24 +170,27 @@ async def send_conversion_notifications():
             await bot.send_message(user.id,conversions)
         except aiogram.utils.exceptions.ChatNotFound:
             pass
+    db_sess.close()
 
 async def send_main_notifications():
     db_sess = create_session()
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()
-    for notification in notifications:
-        notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
-        for user in users:
-            if str(notification.id) not in user.muted_notifications:
-                try:
-                    if 'заказать' in notification.text:
-                        reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
-                        await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                    else:
-                        await bot.send_message(user.id,notification.text)
-                except aiogram.utils.exceptions.ChatNotFound:
-                    pass
-        await asyncio.sleep(300)
+    for notification_chunk in notifications:
+        for notification in notification_chunk:
+            notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+            for user in users:
+                if str(notification.id) not in user.muted_notifications:
+                    try:
+                        if 'заказать' in notification.text:
+                            reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
+                            await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
+                        else:
+                            await bot.send_message(user.id,notification.text)
+                    except aiogram.utils.exceptions.ChatNotFound:
+                        pass
+        await asyncio.sleep(60*15)
+    db_sess.close()
 
 @dp.callback_query_handler(lambda call: True)
 async def ans(call):
@@ -203,7 +210,7 @@ async def check_schedule():
 if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
-    schedule.every().day.at("11:00").do(send_main_notifications)
+    schedule.every().day.at("19:00").do(send_main_notifications)
     schedule.every().monday.at("10:00").do(send_conversion_notifications)
     schedule.every().thursday.at("10:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

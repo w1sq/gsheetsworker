@@ -34,7 +34,7 @@ async def start(message):
 
 @dp.message_handler(commands=['send_message'])
 async def send_message(message):
-    text = message.text.split()[1:]
+    text = ''.join(message.text.split()[1:])
     db_sess = create_session()
     users = db_sess.query(Users).all()
     db_sess.close()

@@ -32,6 +32,15 @@ async def start(message):
             db_sess.close()
         await message.answer('Меню',reply_markup = menu_keyboard)
 
+@dp.message_handler(commands=['send_message'])
+async def send_message(message):
+    text = message.text.split()[1:]
+    db_sess = create_session()
+    users = db_sess.query(Users).all()
+    db_sess.close()
+    for user in users:
+        await bot.send_message(user.id, text)
+
 @dp.message_handler(text='Конверсия')
 async def send_conversion(message):
     await bot.send_chat_action(message.chat.id,'typing')

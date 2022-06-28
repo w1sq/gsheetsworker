@@ -1,7 +1,5 @@
 import gspread
 from datetime import datetime,timedelta
-
-from numpy import product
 from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
 from sqlalchemy.orm import Session

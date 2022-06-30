@@ -77,7 +77,7 @@ class Google_Sheets():
     
     def write_data(self):
         sheet = self.gc.open_by_key('1GdMuPn71NNhKm03Pg0sno_gok3Hg3AwfvetFCfpjsG4')
-        worksheet = sheet.get_worksheet(0)
+        worksheet = sheet.worksheet('trigger')
         worksheet.update('A1', 'on')
 
     def get_conversions_notifications(self):

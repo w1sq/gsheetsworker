@@ -41,7 +41,7 @@ def get_plus(number:float):
 def get_plus2(number):
     if number < 0:
         return '+'+str(number * (-1))
-    return str(number)
+    return str(number*-1)
 
 class Google_Sheets():
     def __init__(self) -> None:

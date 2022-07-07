@@ -174,6 +174,7 @@ commands = {
     'deletenotification' : deletenotification
 }
 
+@dp.message_handler(commands=['conversion'])
 async def send_conversion_notifications():
     db_sess = create_session()
     conversions = google_sheets.get_conversions_notifications()
@@ -185,6 +186,7 @@ async def send_conversion_notifications():
             pass
     db_sess.close()
 
+@dp.message_handler(commands=['supply'])
 async def send_supply_notifications():
     db_sess = create_session()
     supply_notifications = google_sheets.get_supply_notifications()
@@ -197,6 +199,7 @@ async def send_supply_notifications():
                 pass
     db_sess.close()
 
+@dp.message_handler(commands=['main'])
 async def send_main_notifications():
     db_sess = create_session()
     notifications = google_sheets.get_updates()

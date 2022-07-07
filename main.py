@@ -185,6 +185,18 @@ async def send_conversion_notifications():
             pass
     db_sess.close()
 
+async def send_supply_notifications():
+    db_sess = create_session()
+    supply_notifications = google_sheets.get_supply_notifications()
+    users = db_sess.query(Users).all()
+    for user in users:
+        for supply_notification in supply_notifications:
+            try:
+                await bot.send_message(user.id,supply_notification)
+            except aiogram.utils.exceptions.ChatNotFound:
+                pass
+    db_sess.close()
+
 async def send_main_notifications():
     db_sess = create_session()
     notifications = google_sheets.get_updates()
@@ -224,6 +236,7 @@ if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
     schedule.every().day.at("11:00").do(send_main_notifications)
+    schedule.every().day.at("14:00").do(send_supply_notifications)
     schedule.every().monday.at("10:00").do(send_conversion_notifications)
     schedule.every().thursday.at("10:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

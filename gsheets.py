@@ -4,7 +4,12 @@ from db.__all_models import Users, Notifications
 from db.db_session import global_init, create_session
 from sqlalchemy.orm import Session
 import re
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
 from config import gsheet_token
+from time import sleep  
+import xlrd
+from selenium.webdriver.common.by import By
 def float1(string:str):
     try:
         string = float(string.replace(',','.'))
@@ -50,11 +55,27 @@ class Google_Sheets():
         self.worksheet = self.sheets.get_worksheet(0)
         self.worksheet_roadmap = self.sheets.get_worksheet(2)
         self.worksheet_bills = self.sheets.get_worksheet(3)
+        self.need_names = ['Тверь', 'Хоругвино', 'Казань', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Ростов-на-Дону']
         self.products = ['Массажное масло', 'Спрей для волос', 'Масло для волос', 'Крем для тела', 'Крем для ног', 'Маска для волос', 'Кератолитик']
         self.marketplaces = ['Wildberries', 'OZON', 'Yandex', 'Остальное']
         self.weekdays = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
         self.keys_coords = {'Массажное масло':'R1', 'Спрей для волос':'AG1', 'Масло для волос':'AV1', 'Крем для тела':'BK1', 'Крем для ног':'BZ1', 'Маска для волос':'CO1', 'Кератолитик':'DD1'}
-
+        self.chrome_options = Options()
+        self.chrome_options.add_argument(
+                    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36")
+        self.chrome_options.add_argument('--disable-extensions')
+        self.chrome_options.add_experimental_option("prefs", {"download.default_directory": r"C:\Users\79152\Google Drive\all_python\telegram\gsheetsworker"})
+        self.chrome_options.add_argument('--no-sandbox')
+        self.chrome_options.add_argument('--disable-dev-shm-usage')
+        # prefs = {"profile.managed_default_content_settings.images": 2}
+        # self.chrome_options.add_experimental_option("prefs", prefs)
+        # self.chrome_options.add_argument("--headless")
+        self.chrome_options.add_argument('--log-level=3')
+        self.chrome_options.add_argument("start-maximized")
+        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.chrome_options.add_experimental_option('useAutomationExtension', False)
+        self.chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        
     def get_last_date_conversions(self, worksheet):
         i = 0
         while True:
@@ -79,6 +100,42 @@ class Google_Sheets():
         sheet = self.gc.open_by_key('1GdMuPn71NNhKm03Pg0sno_gok3Hg3AwfvetFCfpjsG4')
         worksheet = sheet.worksheet('trigger')
         worksheet.update('A1', 'on')
+
+    def get_ozon(self, browser):
+        browser.get('https://seller.ozon.ru/app/analytics/fulfillment-reports/forecast')
+        sleep(1)
+        email = browser.find_element("name", "email")
+        email.send_keys('semily.cosmetic@gmail.com')
+        sleep(1)
+        password = browser.find_element("name", "password")
+        password.send_keys('cycbAz-suxta4-sesrer')
+        sleep(1)
+        login = browser.find_element(By.TAG_NAME, "button")
+        login.click()
+        sleep(2)
+        login = browser.find_element(By.TAG_NAME, "button")
+        login.click()
+        sleep(10)
+        login = browser.find_element(By.TAG_NAME, "button")
+        login.click()
+        sleep(30)
+
+    def get_supply_notifications(self):
+        browser = webdriver.Chrome(executable_path='./chromedriver.exe',options=self.chrome_options)
+        self.get_ozon(browser)
+        browser.quit()
+        date = datetime.today().strftime('%d.%m.%Y')
+        workbook = xlrd.open_workbook(f"Demands_forecast_{date}.xlsx")
+        needed = {}
+        for name in self.need_names:
+            needed[name] = []
+            worksheet = workbook.sheet_by_name(name)
+            row = 10
+            while True:
+                need = worksheet.cell_value(row , 6)
+                if int(need) > 50:
+                    art = worksheet.cell_value(row , 2)
+                    needed[name].append(f'art|')
 
     def get_conversions_notifications(self):
         sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
@@ -438,6 +495,10 @@ class Google_Sheets():
             if search_pos:
                 search_pos_old = int1(all_data[row-5][30+alph_delta])
                 search_pos_message += f'{product} {search_pos} ({get_plus2(search_pos - search_pos_old)})\n'
+            reviews = int2(all_data[row][28+alph_delta])
+            if reviews:
+                reviews_old = int1(all_data[row-5][28+alph_delta])
+                reviews_message += f'{product} {reviews} ({get_plus(reviews - reviews_old)})\n'
             rating = float2(all_data[row][29+alph_delta])
             if rating:
                 rating_old = float1(all_data[row-5][29+alph_delta])
@@ -623,4 +684,4 @@ class Google_Sheets():
 
 if __name__ == '__main__':
     g_sheets = Google_Sheets()
-    g_sheets.get_conversions()
+    g_sheets.get_supply_notifications()

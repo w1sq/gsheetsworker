@@ -186,17 +186,22 @@ async def send_conversion_notifications(message=''):
             pass
     db_sess.close()
 
+
 @dp.message_handler(commands=['supply'])
 async def send_supply_notifications(message=''):
     db_sess = create_session()
     supply_notifications = google_sheets.get_supply_notifications()
     users = db_sess.query(Users).all()
     for user in users:
-        for supply_notification in supply_notifications:
-            try:
-                await bot.send_message(user.id,supply_notification)
-            except aiogram.utils.exceptions.ChatNotFound:
-                pass
+        for supply_notification_place in supply_notifications.keys():
+            if len(supply_notifications[supply_notification_place]) > 0:
+                message = f'⚡️ Внимание: рекомендую сделать поставку на Ozon {supply_notification_place} в следующем количестве:\n\n'
+                for supply in supply_notifications[supply_notification_place]:
+                    message += supply
+                try:
+                    await bot.send_message(user.id,message)
+                except aiogram.utils.exceptions.ChatNotFound:
+                    pass
     db_sess.close()
 
 @dp.message_handler(commands=['main'])
@@ -205,18 +210,20 @@ async def send_main_notifications(message=''):
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()
     for notification_chunk in notifications:
+        big_message = ''
         for notification in notification_chunk:
             notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
-            for user in users:
-                if str(notification.id) not in user.muted_notifications:
-                    try:
-                        if 'заказать' in notification.text:
+            if 'заказать' in notification.text:
+                for user in users:
+                    if str(notification.id) not in user.muted_notifications:
+                        try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        else:
-                            await bot.send_message(user.id,notification.text)
-                    except aiogram.utils.exceptions.ChatNotFound:
-                        pass
+                        except aiogram.utils.exceptions.ChatNotFound:
+                            pass
+            else:
+                # big_message +=                                                                                          
+                await bot.send_message(user.id,notification.text)
         await asyncio.sleep(60*15)
     db_sess.close()
 
@@ -239,7 +246,7 @@ if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
     schedule.every().day.at("11:00").do(send_main_notifications)
-    schedule.every().day.at("14:00").do(send_supply_notifications)
+    schedule.every().day.at("13:00").do(send_supply_notifications)
     schedule.every().monday.at("10:00").do(send_conversion_notifications)
     schedule.every().thursday.at("10:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

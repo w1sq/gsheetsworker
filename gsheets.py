@@ -10,6 +10,7 @@ from config import gsheet_token
 from time import sleep  
 import xlrd
 from selenium.webdriver.common.by import By
+
 def float1(string:str):
     try:
         string = float(string.replace(',','.'))
@@ -55,7 +56,7 @@ class Google_Sheets():
         self.worksheet = self.sheets.get_worksheet(0)
         self.worksheet_roadmap = self.sheets.get_worksheet(2)
         self.worksheet_bills = self.sheets.get_worksheet(3)
-        self.need_names = ['Тверь', 'Хоругвино', 'Казань', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Ростов-на-Дону']
+        self.need_names = ['Хабаровск', 'Самара', 'Тверь', 'Хоругвино', 'Казань', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Ростов-на-Дону', 'Калининград', 'Красноярск', 'Нижний Новгород', 'Новая Рига']
         self.products = ['Массажное масло', 'Спрей для волос', 'Масло для волос', 'Крем для тела', 'Крем для ног', 'Маска для волос', 'Кератолитик']
         self.marketplaces = ['Wildberries', 'OZON', 'Yandex', 'Остальное']
         self.weekdays = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
@@ -121,21 +122,34 @@ class Google_Sheets():
         sleep(30)
 
     def get_supply_notifications(self):
-        browser = webdriver.Chrome(executable_path='./chromedriver.exe',options=self.chrome_options)
-        self.get_ozon(browser)
-        browser.quit()
+        # browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
+        # self.get_ozon(browser)
+        # browser.quit()
+        sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
+        gworksheet = sheet.get_worksheet(0)
         date = datetime.today().strftime('%d.%m.%Y')
         workbook = xlrd.open_workbook(f"Demands_forecast_{date}.xlsx")
         needed = {}
         for name in self.need_names:
-            needed[name] = []
-            worksheet = workbook.sheet_by_name(name)
-            row = 10
-            while True:
-                need = worksheet.cell_value(row , 6)
-                if int(need) > 50:
-                    art = worksheet.cell_value(row , 2)
-                    needed[name].append(f'art|')
+            try:
+                worksheet = workbook.sheet_by_name(name)
+                needed[name] = []
+                row = 10
+                while True:
+                    try:
+                        need = worksheet.cell_value(row , 6)
+                        if int(need) > 50:
+                            art = worksheet.cell_value(row , 1)
+                            others = worksheet.cell_value(row , 5)
+                            product_name = gworksheet.find(art)
+                            product_name = gworksheet.cell(product_name.row -1, product_name.col).value
+                            needed[name].append(f'{product_name} {need} шт. (остаток на других складах {others} шт.)')
+                        row += 1
+                    except IndexError:
+                        break
+            except Exception:
+                pass
+        return needed
 
     def get_conversions_notifications(self):
         sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')

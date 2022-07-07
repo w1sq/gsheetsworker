@@ -175,7 +175,7 @@ commands = {
 }
 
 @dp.message_handler(commands=['conversion'])
-async def send_conversion_notifications():
+async def send_conversion_notifications(message=''):
     db_sess = create_session()
     conversions = google_sheets.get_conversions_notifications()
     users = db_sess.query(Users).all()
@@ -187,7 +187,7 @@ async def send_conversion_notifications():
     db_sess.close()
 
 @dp.message_handler(commands=['supply'])
-async def send_supply_notifications():
+async def send_supply_notifications(message=''):
     db_sess = create_session()
     supply_notifications = google_sheets.get_supply_notifications()
     users = db_sess.query(Users).all()
@@ -200,7 +200,7 @@ async def send_supply_notifications():
     db_sess.close()
 
 @dp.message_handler(commands=['main'])
-async def send_main_notifications():
+async def send_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()

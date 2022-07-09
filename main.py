@@ -1,4 +1,5 @@
 import asyncio
+from glob import glob
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,14 +10,21 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
 from config import tg_bot_token
 import aioschedule as schedule
-from aiogram.types import InputFile
+from aiogram.dispatcher.filters.state import State, StatesGroup
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Отзывы'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
+
+local_reviews = {}
+
+class Answer(StatesGroup):
+    review_answer = State()
+
 google_sheets = Google_Sheets()
 bot = Bot(token=tg_bot_token)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
+
 global_init()
 @dp.message_handler(commands=['start'])
 async def start(message):
@@ -47,8 +55,16 @@ async def send_message(message):
 
 @dp.message_handler(text='Отзывы')
 async def send_reviews(message):
+    global local_reviews
     await bot.send_chat_action(message.chat.id,'typing')
-    await message.answer(google_sheets.get_reviews())
+    reviews = google_sheets.get_reviews()
+    if reviews:
+        for review in reviews:
+            local_reviews[review[1]] = review[0].split('\n\n')[1].split('\n')[1]
+            answer_keyboard = InlineKeyboardMarkup(one_time_keyboard=True).row(InlineKeyboardButton(text='Ввести текст', callback_data=f'answer_review {review[1]}'))
+            await message.answer(review[0], reply_markup=answer_keyboard)
+    else:
+        await message.answer('Негативных отзывов пока не обнаружено')
 
 @dp.message_handler(text='Конверсия')
 async def send_conversion(message):
@@ -147,6 +163,28 @@ async def unmutenotification(call):
     db_sess.commit()
     db_sess.close()
 
+async def answer_review(call):
+    await call.message.answer('Благодарю. Пожалуйста, отправьте мне ответ в поддержку следующим сообщением')
+    await Answer.review_answer.set()
+    current_state = dp.get_current().current_state()
+    await current_state.update_data(answer_id=call.data.split()[1])
+
+@dp.message_handler(state=Answer.review_answer)
+async def process_answer(message: types.Message, state):
+    global local_reviews
+    state_data = await state.get_data()
+    await state.finish()
+    confirm_keyboard = InlineKeyboardMarkup(one_time_keyboard=True).row(InlineKeyboardButton(text='Подтвердить', callback_data=f"confirm_answer {state_data['answer_id']}"))
+    await message.answer(f"Супер! Я прямо сейчас создам обращение в Wildberries на этот отзыв:\n\n{local_reviews[state_data['answer_id']]}\n\n…со следующим текстом:\n\n{message.text}", reply_markup=confirm_keyboard)
+    
+async def confirm_answer(call):
+    answer_id = call.data.split()[1]
+    local_reviews.pop(answer_id)
+    answer = call.message.text.split('\n\n')[3]
+    google_sheets.send_answer(answer_id, answer)
+    await call.message.answer('Обращение отослано')
+
+
 async def deletenotification(call):
     notification_id = call.data.split()[1]
     db_sess = create_session()
@@ -176,7 +214,9 @@ commands = {
     'show_marketplace' : show_marketplace,
     'unmutenotification' : unmutenotification,
     'mutenotification' : mutenotification,
-    'deletenotification' : deletenotification
+    'deletenotification' : deletenotification,
+    'answer_review' : answer_review,
+    'confirm_answer' : confirm_answer
 }
 
 @dp.message_handler(commands=['conversion'])

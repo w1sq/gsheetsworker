@@ -68,9 +68,9 @@ class Google_Sheets():
         self.chrome_options.add_experimental_option("prefs", {"download.default_directory": r"C:\Users\79152\Google Drive\all_python\telegram\gsheetsworker"})
         self.chrome_options.add_argument('--no-sandbox')
         self.chrome_options.add_argument('--disable-dev-shm-usage')
-        # prefs = {"profile.managed_default_content_settings.images": 2}
-        # self.chrome_options.add_experimental_option("prefs", prefs)
-        # self.chrome_options.add_argument("--headless")
+        prefs = {"profile.managed_default_content_settings.images": 2}
+        self.chrome_options.add_experimental_option("prefs", prefs)
+        self.chrome_options.add_argument("--headless")
         self.chrome_options.add_argument('--log-level=3')
         self.chrome_options.add_argument("start-maximized")
         self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -120,6 +120,9 @@ class Google_Sheets():
         login = browser.find_element(By.TAG_NAME, "button")
         login.click()
         sleep(30)
+
+    def get_reviews(self):
+        pass
 
     def get_supply_notifications(self):
         # browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
@@ -698,4 +701,4 @@ class Google_Sheets():
 
 if __name__ == '__main__':
     g_sheets = Google_Sheets()
-    g_sheets.get_supply_notifications()
+    print(g_sheets.get_supply_notifications())

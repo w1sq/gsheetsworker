@@ -11,7 +11,7 @@ from config import tg_bot_token
 import aioschedule as schedule
 from aiogram.types import InputFile
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
-    .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Платежи'))\
+    .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Отзывы'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
 google_sheets = Google_Sheets()
 bot = Bot(token=tg_bot_token)
@@ -44,6 +44,11 @@ async def send_message(message):
             await bot.send_message(user.id, text)
         except aiogram.utils.exceptions.ChatNotFound:
             pass
+
+@dp.message_handler(text='Отзывы')
+async def send_reviews(message):
+    await bot.send_chat_action(message.chat.id,'typing')
+    await message.answer(google_sheets.get_reviews())
 
 @dp.message_handler(text='Конверсия')
 async def send_conversion(message):

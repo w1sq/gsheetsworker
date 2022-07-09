@@ -125,9 +125,9 @@ class Google_Sheets():
         pass
 
     def get_supply_notifications(self):
-        # browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
-        # self.get_ozon(browser)
-        # browser.quit()
+        browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
+        self.get_ozon(browser)
+        browser.quit()
         sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
         gworksheet = sheet.get_worksheet(0)
         date = datetime.today().strftime('%d.%m.%Y')

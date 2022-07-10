@@ -136,12 +136,13 @@ class Google_Sheets():
         worksheet = sheet.worksheet('Отзывы')
         row = worksheet.find(answer_id).row
         worksheet.update(f'F{row}', answer)
+        worksheet.update(f'H{row}', 'написать в поддержку')
 
 
     def get_supply_notifications(self):
-        browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
-        self.get_ozon(browser)
-        browser.quit()
+        # browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
+        # self.get_ozon(browser)
+        # browser.quit()
         sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
         gworksheet = sheet.get_worksheet(0)
         date = datetime.today().strftime('%d.%m.%Y')
@@ -155,7 +156,7 @@ class Google_Sheets():
                 while True:
                     try:
                         need = worksheet.cell_value(row , 6)
-                        if int(need) > 50:
+                        if need != 'Нет прогноза' and int(need) > 50:
                             art = worksheet.cell_value(row , 1)
                             others = worksheet.cell_value(row , 5)
                             product_name = gworksheet.find(art)

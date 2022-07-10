@@ -250,25 +250,23 @@ async def send_supply_notifications(message=''):
     db_sess.close()
 
 @dp.message_handler(commands=['main'])
-async def send_main_notifications(message=''):
+async def send_main_notifications():
     db_sess = create_session()
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()
     for notification_chunk in notifications:
-        big_message = ''
         for notification in notification_chunk:
             notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
-            if 'заказать' in notification.text:
-                for user in users:
-                    if str(notification.id) not in user.muted_notifications:
-                        try:
+            for user in users:
+                if str(notification.id) not in user.muted_notifications:
+                    try:
+                        if 'заказать' in notification.text:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        except aiogram.utils.exceptions.ChatNotFound:
-                            pass
-            else:
-                # big_message +=                                                                                          
-                await bot.send_message(user.id,notification.text)
+                        else:
+                            await bot.send_message(user.id,notification.text)
+                    except aiogram.utils.exceptions.ChatNotFound:
+                        pass
         await asyncio.sleep(60*15)
     db_sess.close()
 

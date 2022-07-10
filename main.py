@@ -250,7 +250,7 @@ async def send_supply_notifications(message=''):
     db_sess.close()
 
 @dp.message_handler(commands=['main'])
-async def send_main_notifications():
+async def send_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()

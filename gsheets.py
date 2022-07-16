@@ -131,6 +131,18 @@ class Google_Sheets():
                 reviews.append((f"🧐 На товар {row[1]} пришел плохой отзыв {row[4]} звезды. Хочу его удалить через поддержку. Прошу помочь мне с текстом обращения:\n\nТекст отзыва:\n{row[3]}\n\nИспользуйте шаблон для этого клиента:\n\nДобрый день. Прошу удалить отзыв пользователя {row[2]} от {row[0]}. Он не относится к оценке качества товара. Кроме того, ответственность за хранение и транспортировку несет Wildberries. (………….) . Клиент не полностью ознакомился с карточкой товара на Wildberries. Требуем удалить отзыв, так как он вводит в заблуждение других покупателей и несправедливо снижает рейтинг карточки товара!",row[6]))
         return reviews
     
+    def get_review_by_appeal_num(self, appeal_number:int):
+        sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')
+        worksheet = sheet.worksheet('Отзывы')
+        row = worksheet.find(appeal_number).row
+        return worksheet.acell(f'D{row}').value
+
+    def change_review_status(self, appeal_number:int, status:str):
+        sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')
+        worksheet = sheet.worksheet('Отзывы')
+        row = worksheet.find(appeal_number).row
+        worksheet.update(f'H{row}', status)
+
     def send_answer(self, answer_id, answer):
         sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')
         worksheet = sheet.worksheet('Отзывы')
@@ -140,9 +152,9 @@ class Google_Sheets():
 
 
     def get_supply_notifications(self):
-        # browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
-        # self.get_ozon(browser)
-        # browser.quit()
+        browser = webdriver.Chrome(executable_path='./chromedriver',options=self.chrome_options)
+        self.get_ozon(browser)
+        browser.quit()
         sheet = self.gc.open_by_key('11c6uAwJF1crfad7fpGsLbuC9U1pCMupkNxmv2BfSbxM')
         gworksheet = sheet.get_worksheet(0)
         date = datetime.today().strftime('%d.%m.%Y')

@@ -15,8 +15,6 @@ menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Т
     .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Отзывы'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
 
-local_reviews = {}
-
 class Answer(StatesGroup):
     review_answer = State()
 
@@ -60,7 +58,6 @@ async def send_reviews(message):
     reviews = google_sheets.get_reviews()
     if reviews:
         for review in reviews:
-            local_reviews[review[1]] = review[0].split('\n\n')[1].split('\n')[1]
             answer_keyboard = InlineKeyboardMarkup(one_time_keyboard=True).row(InlineKeyboardButton(text='Ввести текст', callback_data=f'answer_review {review[1]}'))
             await message.answer(review[0], reply_markup=answer_keyboard)
     else:
@@ -72,7 +69,7 @@ async def send_conversion(message):
     await message.answer(google_sheets.get_conversions())
 
 @dp.message_handler(text='Товары')
-async def send_statistics(message):
+async def send_items(message):
     keyb= InlineKeyboardMarkup()
     for product in google_sheets.products:
         keyb.add(InlineKeyboardButton(text=product,callback_data=f'show_product |{product}'))
@@ -90,7 +87,7 @@ async def show_product(call):
         await call.message.answer(google_sheets.get_item(name))
 
 @dp.message_handler(text='Маркетплейсы')
-async def send_statistics(message):
+async def send_markets(message):
     keyb= InlineKeyboardMarkup()
     for marketplace in google_sheets.marketplaces:
         keyb.add(InlineKeyboardButton(text=marketplace,callback_data=f'show_marketplace |{marketplace}'))
@@ -128,13 +125,13 @@ async def send_bills(message):
     await message.answer(google_sheets.get_bills())
 
 @dp.message_handler(text='Записать данные')
-async def send_bills(message):
+async def write_data(message):
     await bot.send_chat_action(message.chat.id,'typing')
     google_sheets.write_data()
     await message.answer('Данные успешно записаны')
 
 @dp.message_handler(text='Уведомления')
-async def send_bills(message):
+async def send_notifications(message):
     db_sess = create_session()
     user = db_sess.query(Users).get(message.chat.id)
     notifications = db_sess.query(Notifications).all()
@@ -163,28 +160,6 @@ async def unmutenotification(call):
     db_sess.commit()
     db_sess.close()
 
-async def answer_review(call):
-    await call.message.answer('Благодарю. Пожалуйста, отправьте мне ответ в поддержку следующим сообщением')
-    await Answer.review_answer.set()
-    current_state = dp.get_current().current_state()
-    await current_state.update_data(answer_id=call.data.split()[1])
-
-@dp.message_handler(state=Answer.review_answer)
-async def process_answer(message: types.Message, state):
-    global local_reviews
-    state_data = await state.get_data()
-    await state.finish()
-    confirm_keyboard = InlineKeyboardMarkup(one_time_keyboard=True).row(InlineKeyboardButton(text='Подтвердить', callback_data=f"confirm_answer {state_data['answer_id']}"))
-    await message.answer(f"Супер! Я прямо сейчас создам обращение в Wildberries на этот отзыв:\n\n{local_reviews[state_data['answer_id']]}\n\n…со следующим текстом:\n\n{message.text}", reply_markup=confirm_keyboard)
-    
-async def confirm_answer(call):
-    answer_id = call.data.split()[1]
-    local_reviews.pop(answer_id)
-    answer = call.message.text.split('\n\n')[3]
-    google_sheets.send_answer(answer_id, answer)
-    await call.message.answer('Обращение отослано')
-
-
 async def deletenotification(call):
     notification_id = call.data.split()[1]
     db_sess = create_session()
@@ -209,6 +184,34 @@ async def mutenotification(call):
     db_sess.commit()
     db_sess.close()
 
+async def answer_review(call):
+    await call.message.answer('Благодарю. Пожалуйста, отправьте мне ответ в поддержку следующим сообщением')
+    await Answer.review_answer.set()
+    current_state = dp.get_current().current_state()
+    await current_state.update_data(answer_id=call.data.split()[1])
+
+@dp.message_handler(state=Answer.review_answer)
+async def process_answer(message: types.Message, state):
+    state_data = await state.get_data()
+    await state.finish()
+    review_text = google_sheets.get_review_by_appeal_num(state_data['answer_id'])
+    confirm_keyboard = InlineKeyboardMarkup(one_time_keyboard=True).row(InlineKeyboardButton(text='Подтвердить', callback_data=f"confirm_answer {state_data['answer_id']}"))
+    await message.answer(f"Супер! Я прямо сейчас создам обращение в Wildberries на этот отзыв:\n\n{review_text}\n\n…со следующим текстом:\n\n{message.text}", reply_markup=confirm_keyboard)
+    
+async def confirm_answer(call):
+    answer_id = call.data.split()[1]
+    answer = call.message.text.split('\n\n')[3]
+    google_sheets.send_answer(answer_id, answer)
+    await call.message.answer('Обращение отослано')
+
+async def review_delete_success(call):
+    google_sheets.change_review_status(call.data.split()[1], 'удалён')
+    await call.message.answer('Успешно подтверждено удаление отзыва.')
+
+async def review_help_needed(call):
+    google_sheets.change_review_status(call.data.split()[1], 'не определил')
+    await call.message.answer('Статус сменен на "не определил".')
+
 commands = {
     'show_product' : show_product,
     'show_marketplace' : show_marketplace,
@@ -216,7 +219,9 @@ commands = {
     'mutenotification' : mutenotification,
     'deletenotification' : deletenotification,
     'answer_review' : answer_review,
-    'confirm_answer' : confirm_answer
+    'confirm_answer' : confirm_answer,
+    'review_delete_success' : review_delete_success,
+    'review_help_needed' : review_help_needed
 }
 
 @dp.message_handler(commands=['conversion'])

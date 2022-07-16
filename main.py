@@ -12,7 +12,7 @@ from config import tg_bot_token
 import aioschedule as schedule
 from aiogram.dispatcher.filters.state import State, StatesGroup
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
-    .row(KeyboardButton('Кроссплатформенная'),KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Отзывы'),KeyboardButton('Платежи'))\
+    .row(KeyboardButton('Кроссплатформенная'), KeyboardButton('Поставки'), KeyboardButton('Маркетинг')).row(KeyboardButton('Road Map'),KeyboardButton('Отзывы'),KeyboardButton('Платежи'))\
         .row(KeyboardButton('Уведомления'),KeyboardButton('Записать данные'),(KeyboardButton('Конверсия')))
 
 class Answer(StatesGroup):

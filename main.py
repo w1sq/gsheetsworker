@@ -1,5 +1,6 @@
 import asyncio
 from glob import glob
+from typing import List
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -260,18 +261,22 @@ async def send_main_notifications(message=''):
     notifications = google_sheets.get_updates()
     users = db_sess.query(Users).all()
     for notification_chunk in notifications:
-        for notification in notification_chunk:
-            notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+        if type(notification_chunk) == str:
             for user in users:
-                if str(notification.id) not in user.muted_notifications:
-                    try:
-                        if 'заказать' in notification.text:
+                try:
+                    await bot.send_message(user.id,notification_chunk)
+                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                    pass
+        else:
+            for notification in notification_chunk:
+                notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+                for user in users:
+                    if str(notification.id) not in user.muted_notifications:
+                        try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        else:
-                            await bot.send_message(user.id,notification.text)
-                    except aiogram.utils.exceptions.ChatNotFound:
-                        pass
+                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                            pass
         await asyncio.sleep(60*15)
     db_sess.close()
 

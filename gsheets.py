@@ -1,3 +1,4 @@
+from typing import List
 import gspread
 from datetime import datetime,timedelta
 from db.__all_models import Users, Notifications
@@ -234,6 +235,30 @@ class Google_Sheets():
                 main_message += product_message
         return main_message
 
+    def add_to_db(self, db_sess:Session, notifications):
+        if type(notifications) == str:
+            db_notification = Notifications(text=notifications)
+            db_sess.add(db_notification)
+            db_sess.commit()
+        elif type(notifications) == List:
+            for notification in notifications:
+                db_notification = Notifications(text=notification)
+                db_sess.add(db_notification)
+                db_sess.commit()
+
+    def add_to_db_smart(self, db_sess:Session, notifications):
+        db_notifications = db_sess.query(Notifications).all()
+        for key in notifications.keys():
+            old  = False
+            for db_notification in db_notifications:
+                if key in db_notification.text:
+                    db_notification.text = key + notifications[key]
+                    old = True
+            if not old:
+                db_notification = Notifications(text=key + notifications[key])
+                db_sess.add(db_notification)
+        db_sess.commit()
+
     def get_updates(self):
         db_sess = create_session()
         notifications = db_sess.query(Notifications).all()
@@ -252,33 +277,13 @@ class Google_Sheets():
         db_sess.close()
         return notifications
 
-
-    def add_to_db(self, db_sess:Session, notifications):
-        for notification in notifications:
-            db_notification = Notifications(text=notification)
-            db_sess.add(db_notification)
-        db_sess.commit()
-
-    def add_to_db_smart(self, db_sess:Session, notifications):
-        db_notifications = db_sess.query(Notifications).all()
-        for key in notifications.keys():
-            old  = False
-            for db_notification in db_notifications:
-                if key in db_notification.text:
-                    db_notification.text = key + notifications[key]
-                    old = True
-            if not old:
-                db_notification = Notifications(text=key + notifications[key])
-                db_sess.add(db_notification)
-        db_sess.commit()
-
     def get_other_notification(self, db_sess, all_data, row):
         other_notifications = []
         for rating_notification in self.get_rating_notification(db_sess, all_data, row):
             other_notifications.append(rating_notification)
         for vk_and_inst_notification in self.get_vk_and_inst_notification(all_data, row):
             other_notifications.append(vk_and_inst_notification)
-        return other_notifications
+        return "\n\n".join(other_notifications)
 
     def get_rating_notification(self, db_sess, all_data, row):
         rating_notifications = []
@@ -304,8 +309,9 @@ class Google_Sheets():
                 if search_pos and search_pos_old and search_pos_old < search_pos:
                     key = re.search(re.compile(r'\".+\"'), self.worksheet.acell(self.keys_coords[product]).value).group(0).replace('"','')
                     search_pos_notifications.append(f"⚡️ Внимание: товар «{product}» упал в поиске на {marketplace} по запросу «{key}» с {search_pos_old} места на {search_pos} место")
-        self.add_to_db(db_sess, search_pos_notifications)
-        return search_pos_notifications
+        msg = "\n\n".join(search_pos_notifications)
+        self.add_to_db(db_sess, msg)
+        return msg
     
     def get_sell_pos_notification(self, db_sess:Session, all_data, row):
         sell_pos_notifications = []
@@ -317,8 +323,9 @@ class Google_Sheets():
                 sell_pos_old = int2(all_data[row-5+delta][31+alph_delta])
                 if sell_pos and sell_pos_old and sell_pos_old < sell_pos:
                     sell_pos_notifications.append(f"⚡️ Внимание: товар «{product}» стал продаваться хуже конкурентов на {marketplace}. Его рыночное место изменилось с {sell_pos_old} на {sell_pos}")
-        self.add_to_db(db_sess, sell_pos_notifications)
-        return sell_pos_notifications
+        msg = "\n\n".join(sell_pos_notifications)
+        self.add_to_db(db_sess, msg)
+        return msg
 
     def get_market_supply_notification(self, db_sess:Session, all_data, row):
         local_notifications = {}

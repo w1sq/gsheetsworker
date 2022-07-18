@@ -138,6 +138,18 @@ class Google_Sheets():
         row = worksheet.find(appeal_number).row
         return worksheet.acell(f'D{row}').value
 
+    def get_regional(self, platform:str):
+        sheet = self.gc.open_by_key('1lCp3Myysw5kekRL3CTXnhuGwvQLT348V9q5rM735Uvg')
+        worksheet = sheet.worksheet('Уведомления')
+        match platform:
+            case 'wb':
+                return worksheet.acell('A2').value
+            case 'ozon':
+                return worksheet.acell('B2').value
+    
+    def get_limits(self, platform:str):
+        return "Лимиты пока не готовы"
+
     def change_review_status(self, appeal_number:int, status:str):
         sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')
         worksheet = sheet.worksheet('Отзывы')

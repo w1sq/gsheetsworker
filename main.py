@@ -110,6 +110,13 @@ async def send_crossplatform(message):
     await bot.send_chat_action(message.chat.id,'typing')
     await message.answer(google_sheets.get_crossplatform())
 
+@dp.message_handler(text='Поставки')
+async def send_supplies(message):
+    supplies_keyb = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Региональные Wildberries',callback_data='regional wb'))\
+        .row(InlineKeyboardButton(text='Региональные OZON', callback_data='regional ozon'))\
+            .row(InlineKeyboardButton('Лимиты Wb', callback_data='limits wb'))
+    await message.answer(text='Выберите нужные данные:', reply_markup=supplies_keyb)
+
 @dp.message_handler(text='Маркетинг')
 async def send_marketing(message):
     await bot.send_chat_action(message.chat.id,'typing')
@@ -213,6 +220,14 @@ async def review_help_needed(call):
     google_sheets.change_review_status(call.data.split()[1], 'не определил')
     await call.message.answer('Статус сменен на "не определил".')
 
+async def regional(call):
+    platform = call.data.split()[1]
+    await call.message.answer(google_sheets.get_regional(platform))
+
+async def limits(call):
+    platform = call.data.split()[1]
+    await call.message.answer(google_sheets.get_limits(platform))
+
 commands = {
     'show_product' : show_product,
     'show_marketplace' : show_marketplace,
@@ -222,7 +237,9 @@ commands = {
     'answer_review' : answer_review,
     'confirm_answer' : confirm_answer,
     'review_delete_success' : review_delete_success,
-    'review_help_needed' : review_help_needed
+    'review_help_needed' : review_help_needed,
+    'regional' : regional,
+    'limits' : limits
 }
 
 @dp.message_handler(commands=['conversion'])

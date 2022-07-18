@@ -141,11 +141,10 @@ class Google_Sheets():
     def get_regional(self, platform:str):
         sheet = self.gc.open_by_key('1lCp3Myysw5kekRL3CTXnhuGwvQLT348V9q5rM735Uvg')
         worksheet = sheet.worksheet('Уведомления')
-        match platform:
-            case 'wb':
-                return worksheet.acell('A2').value
-            case 'ozon':
-                return worksheet.acell('B2').value
+        if platform == 'wb':
+            return worksheet.acell('A2').value
+        elif platform == 'ozon':
+            return worksheet.acell('B2').value
     
     def get_limits(self, platform:str):
         return "Лимиты пока не готовы"

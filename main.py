@@ -301,7 +301,7 @@ async def send_main_notifications(message=''):
 async def send_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
-    users = [db_sess.query(Users).all().get(5546230210)]
+    users = [db_sess.query(Users).get(5546230210)]
     for notification_chunk in notifications:
         if type(notification_chunk) == str:
             for user in users:

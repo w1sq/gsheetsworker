@@ -282,7 +282,7 @@ async def send_main_notifications(message=''):
             for user in users:
                 try:
                     await bot.send_message(user.id,notification_chunk)
-                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
                     pass
         else:
             for notification in notification_chunk:
@@ -292,13 +292,13 @@ async def send_main_notifications(message=''):
                         try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
                             pass
         await asyncio.sleep(60*15)
     db_sess.close()
 
 @dp.message_handler(commands=['test'])
-async def send_main_notifications(message=''):
+async def send_test_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
     users = [db_sess.query(Users).get(5546230210)]
@@ -307,7 +307,7 @@ async def send_main_notifications(message=''):
             for user in users:
                 try:
                     await bot.send_message(user.id,notification_chunk)
-                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
                     pass
         else:
             for notification in notification_chunk:
@@ -317,7 +317,7 @@ async def send_main_notifications(message=''):
                         try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
                             pass
         await asyncio.sleep(60*15)
     db_sess.close()

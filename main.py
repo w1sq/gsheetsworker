@@ -297,6 +297,31 @@ async def send_main_notifications(message=''):
         await asyncio.sleep(60*15)
     db_sess.close()
 
+@dp.message_handler(commands=['test'])
+async def send_main_notifications(message=''):
+    db_sess = create_session()
+    notifications = google_sheets.get_updates()
+    users = ['5546230210']
+    for notification_chunk in notifications:
+        if type(notification_chunk) == str:
+            for user in users:
+                try:
+                    await bot.send_message(user.id,notification_chunk)
+                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                    pass
+        else:
+            for notification in notification_chunk:
+                notification = db_sess.query(Notifications).filter(Notifications.text == notification).first()
+                for user in users:
+                    if str(notification.id) not in user.muted_notifications:
+                        try:
+                            reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
+                            await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
+                        except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty:
+                            pass
+        await asyncio.sleep(60*15)
+    db_sess.close()
+
 @dp.callback_query_handler(lambda call: True)
 async def ans(call):
     await commands[call.data.split()[0]](call)

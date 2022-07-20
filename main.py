@@ -217,8 +217,8 @@ async def review_delete_success(call):
     await call.message.answer('Успешно подтверждено удаление отзыва.')
 
 async def review_help_needed(call):
-    google_sheets.change_review_status(call.data.split()[1], 'не определил')
-    await call.message.answer('Статус сменен на "не определил".')
+    google_sheets.change_review_status(call.data.split()[1], 'нужна помощь')
+    await call.message.answer('Статус сменен на "нужна помощь".')
 
 async def regional(call):
     platform = call.data.split()[1]

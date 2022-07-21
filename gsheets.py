@@ -1,3 +1,4 @@
+import json
 from typing import List
 import gspread
 from datetime import datetime,timedelta
@@ -11,7 +12,7 @@ from config import gsheet_token
 from time import sleep  
 import xlrd
 from selenium.webdriver.common.by import By
-
+import asyncio, aiohttp
 def float1(string:str):
     try:
         string = float(string.replace(',','.'))
@@ -58,6 +59,11 @@ class Google_Sheets():
         self.worksheet_roadmap = self.sheets.get_worksheet(2)
         self.worksheet_bills = self.sheets.get_worksheet(3)
         self.need_names = ['Хабаровск', 'Самара', 'Тверь', 'Хоругвино', 'Казань', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Ростов-на-Дону', 'Калининград', 'Красноярск', 'Нижний Новгород', 'Новая Рига']
+        self.warehouses = {
+            "Алексин": 206348,
+            "Екатеринбург" : 1733,
+            # "Казань" "Коледино" "Крёкшино КБТ" "Новосибирск" "Подольск" "СЦ Белая Дача" "СЦ Владимир" "СЦ Волгоград" "СЦ Калуга" "СЦ Комсомольская" "СЦ Красногорск" "СЦ Курьяновская" "СЦ Лобня" "СЦ Минск" "СЦ Мытищи" "СЦ Нижний Новгород" "СЦ Новокосино" "СЦ Подрезково" "СЦ Рязань" "СЦ Симферополь" "СЦ Тамбов" "СЦ Тверь" "СЦ Уфа" "СЦ Чебоксары" "СЦ Южные Ворота" "СЦ Ярославль" "Санкт-Петербург Уткина Заводь 4к4" "Санкт-Петербург Шушары" "Склад Казахстан" "Склад Краснодар" "Электросталь" "Электросталь КБТ"
+        }
         self.products = ['Массажное масло', 'Спрей для волос', 'Масло для волос', 'Крем для тела', 'Крем для ног', 'Маска для волос', 'Кератолитик']
         self.marketplaces = ['Wildberries', 'OZON', 'Yandex', 'Остальное']
         self.weekdays = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
@@ -77,7 +83,35 @@ class Google_Sheets():
         self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         self.chrome_options.add_experimental_option('useAutomationExtension', False)
         self.chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        
+
+
+    async def get_warehouse_limits(self, warehouse_id : int):
+        warehouses_url = 'https://seller.wildberries.ru/ns/sm/supply-manager/api/v1/plan/listLimits'
+        headers = {
+            "Host": "seller.wildberries.ru",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Content-Type": "application/json",
+            "Content-Length" : "112",
+            "Origin": "https://seller.wildberries.ru",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode" : "cors",
+            "Sec-Fetch-Site" : "same-origin",
+            "Referer": "https://seller.wildberries.ru/supplies-management/warehouses-limits",
+            "Connection" : "keep-alive",
+            "Cookie": "___wbu=732543b3-2248-4059-95fb-5c4efea375e8.1629749510; _wbauid=10159857131629749509; _ga=GA1.2.558243196.1629749510; locale=ru; WBToken=AseSkyr40sCtDPiOqq4MQsxU7Ql9wXKTaYgvvFIEVw5LGAUyOmL5a2O1BHQmAm69_jaxSYm6SPWFs04NNXiITxF3rt_dUZpnbdLf8GUWDHq3tA; x-supplier-id=fa9c5339-9cc8-4029-b2ee-bfd61bbf9221; __wbl=cityId%3D0%26regionId%3D0%26city%3D%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%26phone%3D84957755505%26latitude%3D55%2C755787%26longitude%3D37%2C617634%26src%3D1; __store=117673_122258_122259_125238_125239_125240_507_3158_117501_120602_120762_6158_121709_124731_130744_159402_2737_117986_1733_686_132043_161812_1193; __region=68_64_83_4_38_80_33_70_82_86_75_30_69_22_66_31_40_1_48_71; __pricemargin=1.0--; __cpns=12_3_18_15_21; __sppfix=; __dst=-1029256_-102269_-2162196_-1257786; __tm=1658338552"
+        }
+        now = datetime.now()
+        monday = now - timedelta(days = now.weekday())
+        monday_str = monday.strftime("%Y-%m-%d")
+        weekend_str = (monday + timedelta(days=6)).strftime("%Y-%m-%d")
+        payload = {"jsonrpc" : "2.0", "id" : "json-rpc_14", "params" : {"dateFrom" : monday_str, "dateTo":weekend_str, "warehouseId": warehouse_id}}
+        async with aiohttp.ClientSession(headers=headers) as session:
+            response = await session.post(url=warehouses_url, json=json.dumps(payload), headers=headers)
+            responce_json = await response.json()
+            return responce_json
     def get_last_date_conversions(self, worksheet):
         i = 0
         while True:
@@ -746,4 +780,5 @@ class Google_Sheets():
 
 if __name__ == '__main__':
     g_sheets = Google_Sheets()
-    print(g_sheets.get_supply_notifications())
+    loop = asyncio.get_event_loop()
+    print(loop.run_until_complete(g_sheets.get_warehouse_limits(206348)))

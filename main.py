@@ -276,6 +276,7 @@ async def send_supply_notifications(message=''):
 async def send_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
+    await bot.send_message(5546230210, str(notifications))
     users = db_sess.query(Users).all()
     for notification_chunk in notifications:
         if type(notification_chunk) == str:
@@ -301,6 +302,7 @@ async def send_main_notifications(message=''):
 async def send_test_main_notifications(message=''):
     db_sess = create_session()
     notifications = google_sheets.get_updates()
+    await bot.send_message(5546230210, str(notifications))
     users = [db_sess.query(Users).get(5546230210)]
     for notification_chunk in notifications:
         if type(notification_chunk) == str:

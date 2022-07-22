@@ -62,7 +62,44 @@ class Google_Sheets():
         self.warehouses = {
             "Алексин": 206348,
             "Екатеринбург" : 1733,
-            # "Казань" "Коледино" "Крёкшино КБТ" "Новосибирск" "Подольск" "СЦ Белая Дача" "СЦ Владимир" "СЦ Волгоград" "СЦ Калуга" "СЦ Комсомольская" "СЦ Красногорск" "СЦ Курьяновская" "СЦ Лобня" "СЦ Минск" "СЦ Мытищи" "СЦ Нижний Новгород" "СЦ Новокосино" "СЦ Подрезково" "СЦ Рязань" "СЦ Симферополь" "СЦ Тамбов" "СЦ Тверь" "СЦ Уфа" "СЦ Чебоксары" "СЦ Южные Ворота" "СЦ Ярославль" "Санкт-Петербург Уткина Заводь 4к4" "Санкт-Петербург Шушары" "Склад Казахстан" "Склад Краснодар" "Электросталь" "Электросталь КБТ"
+            "Казань": 117986,
+            "Коледино" : 507,
+            "Крёкшино КБТ" : 124731, 
+            "Новосибирск" : 686,
+            "Подольск" : 117501,
+            "СЦ Астрахань" : 169872,
+            "СЦ Белая Дача" : 205228,
+            "СЦ Владимир" : 144649,
+            "СЦ Волгоград" : 6144,
+            "СЦ Иваново" : 203632,
+            "СЦ Калуга" : 117442,
+            "СЦ Комсомольская" : 154371,
+            "СЦ Красногорск" : 6159,
+            "СЦ Курск" : 140302,
+            "СЦ Курьяновская" : 156814,
+            "СЦ Липецк" : 160030,
+            "СЦ Лобня" : 117289,
+            "СЦ Минск" : 117393,
+            "СЦ Мытищи" : 115650,
+            "СЦ Набережные Челны": 204952,
+            "СЦ Нижний Новгород" : 118535,
+            "СЦ Новокосино" : 141637,
+            "СЦ Подрезково" : 124716,
+            "СЦ Рязань" : 6156,
+            "СЦ Серов" : 169537,
+            "СЦ Симферополь" : 144154,
+            "СЦ Тамбов" : 117866,
+            "СЦ Тверь" : 117456,
+            "СЦ Уфа" : 149445,
+            "СЦ Чебоксары" : 203799,
+            "СЦ Южные Ворота" : 158328,
+            "СЦ Ярославль" : 6154,
+            "Санкт-Петербург Уткина Заводь 4к4" : 2737,
+            "Санкт-Петербург Шушары" : 159402,
+            "Склад Казахстан" : 204939,
+            "Склад Краснодар" : 130744,
+            "Электросталь" : 120762,
+            "Электросталь КБТ" : 121709
         }
         self.products = ['Массажное масло', 'Спрей для волос', 'Масло для волос', 'Крем для тела', 'Крем для ног', 'Маска для волос', 'Кератолитик']
         self.marketplaces = ['Wildberries', 'OZON', 'Yandex', 'Остальное']
@@ -94,7 +131,7 @@ class Google_Sheets():
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
             "Content-Type": "application/json",
-            "Content-Length" : "112",
+            "Content-Length" : f"{108+len(str(warehouse_id))}",
             "Origin": "https://seller.wildberries.ru",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode" : "cors",
@@ -107,11 +144,12 @@ class Google_Sheets():
         monday = now - timedelta(days = now.weekday())
         monday_str = monday.strftime("%Y-%m-%d")
         weekend_str = (monday + timedelta(days=6)).strftime("%Y-%m-%d")
-        payload = {"jsonrpc" : "2.0", "id" : "json-rpc_14", "params" : {"dateFrom" : monday_str, "dateTo":weekend_str, "warehouseId": warehouse_id}}
+        payload = '{{"params":{{"dateFrom":"{}","dateTo":"{}","warehouseId":{}}},"jsonrpc":"2.0","id":"json-rpc_20"}}'.format(monday_str, weekend_str, warehouse_id)
         async with aiohttp.ClientSession(headers=headers) as session:
-            response = await session.post(url=warehouses_url, json=json.dumps(payload), headers=headers)
+            response = await session.post(url=warehouses_url, data=payload, headers=headers)
             responce_json = await response.json()
             return responce_json
+    
     def get_last_date_conversions(self, worksheet):
         i = 0
         while True:
@@ -781,4 +819,5 @@ class Google_Sheets():
 if __name__ == '__main__':
     g_sheets = Google_Sheets()
     loop = asyncio.get_event_loop()
-    print(loop.run_until_complete(g_sheets.get_warehouse_limits(206348)))
+    for i in g_sheets.warehouses.keys():
+        print(i,"\n\n\n", loop.run_until_complete(g_sheets.get_warehouse_limits(g_sheets.warehouses[i])),"\n\n\n")

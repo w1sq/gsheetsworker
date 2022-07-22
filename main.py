@@ -319,7 +319,6 @@ async def send_test_main_notifications(message=''):
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
                         except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
                             pass
-        await asyncio.sleep(60*15)
     db_sess.close()
 
 @dp.callback_query_handler(lambda call: True)

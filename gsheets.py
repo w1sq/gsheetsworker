@@ -227,6 +227,19 @@ class Google_Sheets():
         row = worksheet.find(appeal_number).row
         worksheet.update(f'H{row}', status)
 
+    def review_recover(self, appeal_number:int, status:str):
+        sheet = self.gc.open_by_key('1pnZIRyLNZ1eoNja9BRT2covnHh5YNfXKoASXIqcDDXM')
+        worksheet = sheet.worksheet('Отзывы')
+        row = worksheet.find(appeal_number).row
+        worksheet.update(f'H{row}', status)
+
+    def review_recover_and_date(self, appeal_number:int, status:str):
+        sheet = self.gc.open_by_key('1pnZIRyLNZ1eoNja9BRT2covnHh5YNfXKoASXIqcDDXM')
+        worksheet = sheet.worksheet('Отзывы')
+        row = worksheet.find(appeal_number).row
+        worksheet.update(f'H{row}', status)
+        worksheet.update(f'J{row}', datetime.now().strftime("%d.%m.%Y"))
+
     def send_answer(self, answer_id, answer):
         sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')
         worksheet = sheet.worksheet('Отзывы')

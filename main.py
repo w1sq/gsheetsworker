@@ -228,6 +228,14 @@ async def limits(call):
     platform = call.data.split()[1]
     await call.message.answer(google_sheets.get_limits(platform))
 
+async def review_restored_success(call):
+    google_sheets.review_recover(call.data.split()[1], 'восстановили отзыв')
+    await call.message.answer('Статус отзыва стал "восстановили отзыв".')
+
+async def review_unrestored_needed(call):
+    google_sheets.review_recover_and_date(call.data.split()[1], 'написать в поддержку')
+    await call.message.answer('Статус отзыва стал "написать в поддержку".')
+
 commands = {
     'show_product' : show_product,
     'show_marketplace' : show_marketplace,
@@ -239,7 +247,9 @@ commands = {
     'review_delete_success' : review_delete_success,
     'review_help_needed' : review_help_needed,
     'regional' : regional,
-    'limits' : limits
+    'limits' : limits,
+    'review_restored_success' : review_restored_success,
+    "review_unrestored_needed" : review_unrestored_needed
 }
 
 @dp.message_handler(commands=['conversion'])
@@ -327,7 +337,6 @@ async def send_test_main_notifications(message=''):
 async def ans(call):
     await commands[call.data.split()[0]](call)
 
-
 async def main():
     await dp.start_polling()
 
@@ -341,9 +350,9 @@ async def check_schedule():
 if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
-    schedule.every().day.at("11:00").do(send_main_notifications)
-    schedule.every().day.at("13:00").do(send_supply_notifications)
-    schedule.every().monday.at("10:00").do(send_conversion_notifications)
-    schedule.every().thursday.at("10:00").do(send_conversion_notifications)
+    schedule.every().day.at("8:00").do(send_main_notifications)
+    schedule.every().day.at("10:00").do(send_supply_notifications)
+    schedule.every().monday.at("7:00").do(send_conversion_notifications)
+    schedule.every().thursday.at("7:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())
     loop.run_until_complete(main())

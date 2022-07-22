@@ -278,7 +278,7 @@ async def send_supply_notifications(message=''):
                     message += supply
                 try:
                     await bot.send_message(user.id,message)
-                except aiogram.utils.exceptions.ChatNotFound:
+                except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
                     pass
     db_sess.close()
 

@@ -283,7 +283,7 @@ async def send_main_notifications(message=''):
             for user in users:
                 try:
                     await bot.send_message(user.id,notification_chunk)
-                except aiogram.utils.exceptions.ChatNotFound and aiogram.utils.exceptions.MessageTextIsEmpty and aiogram.utils.exceptions.BotBlocked:
+                except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
                     pass
         else:
             for notification in notification_chunk:
@@ -293,7 +293,7 @@ async def send_main_notifications(message=''):
                         try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        except aiogram.utils.exceptions.ChatNotFound or aiogram.utils.exceptions.MessageTextIsEmpty or aiogram.utils.exceptions.BotBlocked:
+                        except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
                             pass
         await asyncio.sleep(60*15)
     db_sess.close()
@@ -309,7 +309,7 @@ async def send_test_main_notifications(message=''):
             for user in users:
                 try:
                     await bot.send_message(user.id,notification_chunk)
-                except aiogram.utils.exceptions.ChatNotFound or aiogram.utils.exceptions.MessageTextIsEmpty or aiogram.utils.exceptions.BotBlocked:
+                except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
                     pass
         else:
             for notification in notification_chunk:
@@ -319,7 +319,7 @@ async def send_test_main_notifications(message=''):
                         try:
                             reply_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='🔔',callback_data=f'mutenotification {notification.id} {user.id}'))
                             await bot.send_message(user.id,notification.text,reply_markup=reply_markup)
-                        except aiogram.utils.exceptions.ChatNotFound or aiogram.utils.exceptions.MessageTextIsEmpty or aiogram.utils.exceptions.BotBlocked:
+                        except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
                             pass
     db_sess.close()
 

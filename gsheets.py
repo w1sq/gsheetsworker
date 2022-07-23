@@ -101,6 +101,7 @@ class Google_Sheets():
             "Электросталь" : 120762,
             "Электросталь КБТ" : 121709
         }
+        self.containers = {"Короба": "limitMonoMix", "Монопалеты":"limitPallet", "Суперсейф":"limitSupersafe"}
         self.products = ['Массажное масло', 'Спрей для волос', 'Масло для волос', 'Крем для тела', 'Крем для ног', 'Маска для волос', 'Кератолитик']
         self.marketplaces = ['Wildberries', 'OZON', 'Yandex', 'Остальное']
         self.weekdays = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
@@ -121,8 +122,7 @@ class Google_Sheets():
         self.chrome_options.add_experimental_option('useAutomationExtension', False)
         self.chrome_options.add_argument('--disable-blink-features=AutomationControlled')
 
-
-    async def get_warehouse_limits(self, warehouse_id : int):
+    async def get_warehouse_limits(self, limit_object:Limits):
         warehouses_url = 'https://seller.wildberries.ru/ns/sm/supply-manager/api/v1/plan/listLimits'
         headers = {
             "Host": "seller.wildberries.ru",
@@ -131,7 +131,7 @@ class Google_Sheets():
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
             "Content-Type": "application/json",
-            "Content-Length" : f"{108+len(str(warehouse_id))}",
+            "Content-Length" : f"{108+len(str(limit_object.warehouse))}",
             "Origin": "https://seller.wildberries.ru",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode" : "cors",

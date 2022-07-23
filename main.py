@@ -242,10 +242,7 @@ async def limits_wb(call):
     else:
         message = "Привет! Сейчас я 24/7 ищу лимиты на эти склады:\n\n"
         for limit in limits:
-            if limit.time_range < datetime.now():
-                message += f'{limit.city} {limit.amount}шт. типа {limit.type} пока не найдется'
-            else:
-                message += f'{limit.city} {limit.amount}шт. типа {limit.type} до {limit.time_range.strftime("%d.%m.%Y")}'
+            message += f'{limit.city}\n'
         await call.message.answer(message, reply_markup = limits_add_keyboard)
 
 async def add_limits(call):
@@ -300,7 +297,10 @@ async def process_limits_dates(call):
     confirm_keyboard = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Да, добавить еще отслеживание', callback_data='add_limits')).row(InlineKeyboardButton(text='Спасибо, не нужно', callback_data='main_menu')).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
     message = f"Хорошо. Будут усиленно искать поставку {amount} штук {list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(int(warehouse))]} типа {container} по этому заданию «{list(dates.keys())[list(dates.values()).index(int(time_range))]}»"
     db_sess = create_session()
-    new_limit = Limits(warehouse=warehouse, type=container, amount=int(amount),time_range= datetime.now() + timedelta(days=int(time_range)))
+    if int(time_range) != -1:
+        new_limit = Limits(warehouse=warehouse, type=container, amount=int(amount),time_range= datetime.now() + timedelta(days=int(time_range)))
+    else:
+        new_limit = Limits(warehouse=warehouse, type=container, amount=int(amount),forever=True)
     db_sess.add(new_limit)
     db_sess.commit()
     db_sess.close()
@@ -335,6 +335,7 @@ commands = {
     'review_restored_success' : review_restored_success,
     "review_unrestored_needed" : review_unrestored_needed
 }
+
 
 @dp.message_handler(commands=['conversion'])
 async def send_conversion_notifications(message=''):
@@ -417,6 +418,18 @@ async def send_test_main_notifications(message=''):
                             pass
     db_sess.close()
 
+async def send_limits_notifications():
+    db_sess = create_session()
+    limits = db_sess.query(Limits).all()
+    for limit in limits:
+        if not limit.forever and limit.time_range < datetime.now():
+            db_sess.delete(limit)
+        else:
+            
+    db_sess.commit()
+    db_sess.close()
+
+
 @dp.callback_query_handler(lambda call: True)
 async def ans(call):
     await commands[call.data.split()[0]](call)
@@ -436,6 +449,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     schedule.every().day.at("8:00").do(send_main_notifications)
     schedule.every().day.at("10:00").do(send_supply_notifications)
+    schedule.every(5).minutes.do(send_limits_notifications)
     schedule.every().monday.at("7:00").do(send_conversion_notifications)
     schedule.every().thursday.at("7:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

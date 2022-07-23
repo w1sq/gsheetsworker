@@ -25,3 +25,4 @@ class Limits(SqlAlchemyBase):
     type = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     amount = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     time_range = sqlalchemy.Column(sqlalchemy.DateTime, default = datetime.now())
+    forever = sqlalchemy.Column(sqlalchemy.Boolean, default=False)

@@ -477,7 +477,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     schedule.every().day.at("8:00").do(send_main_notifications)
     schedule.every().day.at("10:00").do(send_supply_notifications)
-    schedule.every(1).minutes.do(send_limits_notifications)
+    schedule.every(5).minutes.do(send_limits_notifications)
     schedule.every().monday.at("7:00").do(send_conversion_notifications)
     schedule.every().thursday.at("7:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

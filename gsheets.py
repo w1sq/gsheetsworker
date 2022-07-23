@@ -2,7 +2,7 @@ import json
 from typing import List
 import gspread
 from datetime import datetime,timedelta
-from db.__all_models import Users, Notifications
+from db.__all_models import Users, Notifications, Limits
 from db.db_session import global_init, create_session
 from sqlalchemy.orm import Session
 import re
@@ -219,7 +219,7 @@ class Google_Sheets():
             return worksheet.acell('B2').value
     
     def get_limits(self, platform:str):
-        return "Лимиты пока не готовы"
+        pass
 
     def change_review_status(self, appeal_number:int, status:str):
         sheet = self.gc.open_by_key('1LMt-hlMhaDq0iyMenlC6QdWWfQ7sgVZ4tl9_ka14HVY')

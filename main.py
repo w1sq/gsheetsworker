@@ -1,15 +1,14 @@
 import asyncio
-from glob import glob
-from typing import List
 from aiogram import Bot, Dispatcher,types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from gsheets import Google_Sheets
-from db.__all_models import Users, Notifications
+from db.__all_models import Users, Notifications, Limits
 from db.db_session import global_init, create_session
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import aiogram
 from config import tg_bot_token
+from datetime import datetime,timedelta
 import aioschedule as schedule
 from aiogram.dispatcher.filters.state import State, StatesGroup
 menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Товары'),KeyboardButton('Маркетплейсы'))\
@@ -18,6 +17,9 @@ menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton('Т
 
 class Answer(StatesGroup):
     review_answer = State()
+
+class GetLimitAmount(StatesGroup):
+    limit_amount = State()
 
 google_sheets = Google_Sheets()
 bot = Bot(token=tg_bot_token)
@@ -39,6 +41,9 @@ async def start(message):
             db_sess.commit()
             db_sess.close()
         await message.answer('Меню',reply_markup = menu_keyboard)
+
+async def main_menu(call):
+    await call.message.answer('Вы в меню',reply_markup = menu_keyboard)
 
 @dp.message_handler(commands=['send_message'])
 async def send_message(message):
@@ -114,7 +119,7 @@ async def send_crossplatform(message):
 async def send_supplies(message):
     supplies_keyb = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Региональные Wildberries',callback_data='regional wb'))\
         .row(InlineKeyboardButton(text='Региональные OZON', callback_data='regional ozon'))\
-            .row(InlineKeyboardButton('Лимиты Wb', callback_data='limits wb'))
+            .row(InlineKeyboardButton('Лимиты Wb', callback_data='limits_wb'))
     await message.answer(text='Выберите нужные данные:', reply_markup=supplies_keyb)
 
 @dp.message_handler(text='Маркетинг')
@@ -228,6 +233,79 @@ async def limits(call):
     platform = call.data.split()[1]
     await call.message.answer(google_sheets.get_limits(platform))
 
+async def limits_wb(call):
+    db_sess = create_session()
+    limits = db_sess.query(Limits).all()
+    limits_add_keyboard = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Добавить новые склады',callback_data='add_limits')).row(InlineKeyboardButton(text="Главное меню", callback_data='main_menu'))
+    if not limits:
+        await call.message.answer("Привет! Сейчас я не отслеживаю лимитов Wildberries. Но могу начать это делать 24/7. Нажимай кнопку внизу.", reply_markup = limits_add_keyboard)
+    else:
+        message = "Привет! Сейчас я 24/7 ищу лимиты на эти склады:\n\n"
+        for limit in limits:
+            if limit.time_range < datetime.now():
+                message += f'{limit.city} {limit.amount}шт. типа {limit.type} пока не найдется'
+            else:
+                message += f'{limit.city} {limit.amount}шт. типа {limit.type} до {limit.time_range.strftime("%d.%m.%Y")}'
+        await call.message.answer(message, reply_markup = limits_add_keyboard)
+
+async def add_limits(call):
+    message = 'На какие склады мне отслеживать поставки?'
+    warehouses_keyboard = InlineKeyboardMarkup()
+    for i in google_sheets.warehouses.keys():
+        warehouses_keyboard.row(InlineKeyboardButton(text=i, callback_data=f'process_limits_warehouse {google_sheets.warehouses[i]}'))
+    warehouses_keyboard.row(InlineKeyboardButton(text='Назад', callback_data='limits_wb')).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
+    await call.message.answer(message, reply_markup=warehouses_keyboard)
+
+async def process_limits_warehouse(call):
+    warehouse = call.data.split()[1]
+    message = 'Какой вид поставки?'
+    warehouses_keyboard = InlineKeyboardMarkup()
+    containers = ["Короба", "Монопалеты", "Суперсейф"]
+    for i in containers:
+        warehouses_keyboard.row(InlineKeyboardButton(text=i, callback_data=f'pl_amount {warehouse} {i}'))
+    warehouses_keyboard.row(InlineKeyboardButton(text='Выбрать другой склад', callback_data='add_limits')).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
+    await call.message.answer(message, reply_markup=warehouses_keyboard)
+
+async def process_limits_amount(call):
+    warehouse,container = call.data.split()[1:]
+    message = 'Далее необходимое число для отслеживания:\nУкажите необходимый лимит в условном значении. Указывайте точное количества товара в вашей поставке. Это количество указано в скобках рядом с номером заказа в разделе - Управление поставками\n\nОтправьте мне число ниже 👇'
+    await GetLimitAmount.limit_amount.set()
+    state = dp.get_current().current_state()
+    await state.update_data(warehouse=warehouse)
+    await state.update_data(container=container)
+    await call.message.answer(message)
+
+@dp.message_handler(state=GetLimitAmount.limit_amount)
+async def process_limits_amount_confirm(message: types.Message, state):
+    if message.text == "ОТМЕНА":
+        await state.finish()
+        await message.answer('Вы в меню',reply_markup = menu_keyboard)
+    elif message.text.isdigit():
+        state_data = await state.get_data()
+        amount = int(message.text)
+        text = f"Хорошо, буду искать лимит на поставку {amount} штук типа {state_data['container']} в {list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(int(state_data['warehouse']))]}. Теперь выберите даты для поисков лимитов:"
+        dates_keyboard = InlineKeyboardMarkup()
+        dates = {"Сегодня":0, "Завтра":1, "Неделя":7, "Месяц":30, "Искать пока не найдется":-1}
+        for i in dates.keys():
+            dates_keyboard.row(InlineKeyboardButton(text=i, callback_data=f"pl_dates {state_data['warehouse']} {state_data['container']} {amount} {dates[i]}"))
+        dates_keyboard.row(InlineKeyboardButton(text='Изменить лимит', callback_data=f"pl_amount {state_data['warehouse']} {state_data['container']}")).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
+        await message.answer(text=text, reply_markup=dates_keyboard)
+        await state.finish()
+    else:
+        await message.answer('Я принимаю только числа, либо отправьте число, либо напишите "ОТМЕНА" для отмены')
+
+async def process_limits_dates(call):
+    warehouse, container, amount, time_range = call.data.split()[1:]
+    dates = {"Сегодня":0, "Завтра":1, "Неделя":7, "Месяц":30, "Искать пока не найдется":-1}
+    confirm_keyboard = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Да, добавить еще отслеживание', callback_data='add_limits')).row(InlineKeyboardButton(text='Спасибо, не нужно', callback_data='main_menu')).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
+    message = f"Хорошо. Будут усиленно искать поставку {amount} штук {list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(int(warehouse))]} типа {container} по этому заданию «{list(dates.keys())[list(dates.values()).index(int(time_range))]}»"
+    db_sess = create_session()
+    new_limit = Limits(warehouse=warehouse, type=container, amount=int(amount),time_range= datetime.now() + timedelta(days=int(time_range)))
+    db_sess.add(new_limit)
+    db_sess.commit()
+    db_sess.close()
+    await call.message.answer(text=message, reply_markup = confirm_keyboard)
+
 async def review_restored_success(call):
     google_sheets.review_recover(call.data.split()[1], 'восстановили отзыв')
     await call.message.answer('Статус отзыва стал "восстановили отзыв".')
@@ -248,6 +326,12 @@ commands = {
     'review_help_needed' : review_help_needed,
     'regional' : regional,
     'limits' : limits,
+    'limits_wb' : limits_wb,
+    'main_menu' : main_menu,
+    'add_limits' : add_limits,
+    'process_limits_warehouse' : process_limits_warehouse,
+    'pl_amount' : process_limits_amount,
+    'pl_dates' : process_limits_dates,
     'review_restored_success' : review_restored_success,
     "review_unrestored_needed" : review_unrestored_needed
 }

@@ -54,7 +54,7 @@ async def send_message(message):
     for user in users:
         try:
             await bot.send_message(user.id, text)
-        except aiogram.utils.exceptions.ChatNotFound:
+        except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
             pass
 
 @dp.message_handler(text='Отзывы')

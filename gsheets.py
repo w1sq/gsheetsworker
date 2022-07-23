@@ -140,15 +140,17 @@ class Google_Sheets():
             "Connection" : "keep-alive",
             "Cookie": "___wbu=732543b3-2248-4059-95fb-5c4efea375e8.1629749510; _wbauid=10159857131629749509; _ga=GA1.2.558243196.1629749510; locale=ru; WBToken=AseSkyr40sCtDPiOqq4MQsxU7Ql9wXKTaYgvvFIEVw5LGAUyOmL5a2O1BHQmAm69_jaxSYm6SPWFs04NNXiITxF3rt_dUZpnbdLf8GUWDHq3tA; x-supplier-id=fa9c5339-9cc8-4029-b2ee-bfd61bbf9221; __wbl=cityId%3D0%26regionId%3D0%26city%3D%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%26phone%3D84957755505%26latitude%3D55%2C755787%26longitude%3D37%2C617634%26src%3D1; __store=117673_122258_122259_125238_125239_125240_507_3158_117501_120602_120762_6158_121709_124731_130744_159402_2737_117986_1733_686_132043_161812_1193; __region=68_64_83_4_38_80_33_70_82_86_75_30_69_22_66_31_40_1_48_71; __pricemargin=1.0--; __cpns=12_3_18_15_21; __sppfix=; __dst=-1029256_-102269_-2162196_-1257786; __tm=1658338552"
         }
-        now = datetime.now()
-        monday = now - timedelta(days = now.weekday())
-        monday_str = monday.strftime("%Y-%m-%d")
-        weekend_str = (monday + timedelta(days=6)).strftime("%Y-%m-%d")
-        payload = '{{"params":{{"dateFrom":"{}","dateTo":"{}","warehouseId":{}}},"jsonrpc":"2.0","id":"json-rpc_20"}}'.format(monday_str, weekend_str, warehouse_id)
+        if not limit_object.forever:
+            payload = '{{"params":{{"dateFrom":"{}","dateTo":"{}","warehouseId":{}}},"jsonrpc":"2.0","id":"json-rpc_20"}}'.format(datetime.now().strftime("%Y-%m-%d"), limit_object.time_range.strftime("%Y-%m-%d"), limit_object.warehouse)
+        else:
+            payload = '{{"params":{{"dateFrom":"{}","dateTo":"{}","warehouseId":{}}},"jsonrpc":"2.0","id":"json-rpc_20"}}'.format(datetime.now().strftime("%Y-%m-%d"), (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%d"), limit_object.warehouse)
         async with aiohttp.ClientSession(headers=headers) as session:
             response = await session.post(url=warehouses_url, data=payload, headers=headers)
             responce_json = await response.json()
-            return responce_json
+            for entry in responce_json["result"]["limits"][str(limit_object.warehouse)]:
+                if limit_object.amount <= entry[self.containers[limit_object.type]]:
+                    return entry["date"].split("T")[0], entry[self.containers[limit_object.type]]
+        return None
     
     def get_last_date_conversions(self, worksheet):
         i = 0

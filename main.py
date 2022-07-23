@@ -242,7 +242,7 @@ async def limits_wb(call):
     else:
         message = "Привет! Сейчас я 24/7 ищу лимиты на эти склады:\n\n"
         for limit in limits:
-            message += f'{limit.city}\n'
+            message += f'{list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(limit.warehouse)]}\n'
         await call.message.answer(message, reply_markup = limits_add_keyboard)
 
 async def add_limits(call):
@@ -271,6 +271,16 @@ async def process_limits_amount(call):
     await state.update_data(warehouse=warehouse)
     await state.update_data(container=container)
     await call.message.answer(message)
+
+async def choose_date(call):
+    warehouse, limit_type, amount = call.data.split()[1:]
+    text = f"Хорошо, буду искать лимит на поставку {amount} штук типа {limit_type} в {list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(int(warehouse))]}. Теперь выберите даты для поисков лимитов:"
+    dates_keyboard = InlineKeyboardMarkup()
+    dates = {"Сегодня":0, "Завтра":1, "Неделя":7, "Месяц":30, "Искать пока не найдется":-1}
+    for i in dates.keys():
+        dates_keyboard.row(InlineKeyboardButton(text=i, callback_data=f"pl_dates {warehouse} {limit_type} {amount} {dates[i]}"))
+    dates_keyboard.row(InlineKeyboardButton(text='Изменить лимит', callback_data=f"pl_amount {warehouse} {limit_type}")).row(InlineKeyboardButton(text='В главное меню', callback_data='main_menu'))
+    await call.message.answer(text=text, reply_markup=dates_keyboard)
 
 @dp.message_handler(state=GetLimitAmount.limit_amount)
 async def process_limits_amount_confirm(message: types.Message, state):
@@ -314,6 +324,9 @@ async def review_unrestored_needed(call):
     google_sheets.review_recover_and_date(call.data.split()[1], 'написать в поддержку')
     await call.message.answer('Статус отзыва стал "написать в поддержку".')
 
+async def book_a_limit(call):
+    await call.message.answer("Пока меня не научили это делать. Поэтому попрошу Вас занять поставку самостоятельно")
+
 commands = {
     'show_product' : show_product,
     'show_marketplace' : show_marketplace,
@@ -333,7 +346,9 @@ commands = {
     'pl_amount' : process_limits_amount,
     'pl_dates' : process_limits_dates,
     'review_restored_success' : review_restored_success,
-    "review_unrestored_needed" : review_unrestored_needed
+    "review_unrestored_needed" : review_unrestored_needed,
+    'book_a_limit' : book_a_limit,
+    'cd': choose_date
 }
 
 
@@ -421,11 +436,24 @@ async def send_test_main_notifications(message=''):
 async def send_limits_notifications():
     db_sess = create_session()
     limits = db_sess.query(Limits).all()
+    messages = {}
+    users = db_sess.query(Users).all()
     for limit in limits:
-        if not limit.forever and limit.time_range < datetime.now():
+        if not limit.forever and limit.time_range < datetime.now() + timedelta(days=-1):
             db_sess.delete(limit)
         else:
-            
+            date, amount = await google_sheets.get_warehouse_limits(limit)
+            if date:
+                messages[limit] = f"🚚  Место для поставки на склад {list(google_sheets.warehouses.keys())[list(google_sheets.warehouses.values()).index(limit.warehouse)]} на {amount} мест с типом {limit.type} найдено на дату {date}"
+            db_sess.delete(limit)
+    if messages:
+        for limit in messages.keys():
+            for user in users:
+                try:
+                    keyb = InlineKeyboardMarkup().row(InlineKeyboardButton(text='Да, займи поставку на эти даты', callback_data='book_a_limit')).row(InlineKeyboardButton(text='Ищи другие даты', callback_data=f'cd {limit.warehouse} {limit.type} {limit.amount}'))
+                    await bot.send_message(user.id,messages[limit],reply_markup=keyb)
+                except (aiogram.utils.exceptions.ChatNotFound, aiogram.utils.exceptions.MessageTextIsEmpty, aiogram.utils.exceptions.BotBlocked):
+                    pass
     db_sess.commit()
     db_sess.close()
 
@@ -449,7 +477,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     schedule.every().day.at("8:00").do(send_main_notifications)
     schedule.every().day.at("10:00").do(send_supply_notifications)
-    schedule.every(5).minutes.do(send_limits_notifications)
+    schedule.every(1).minutes.do(send_limits_notifications)
     schedule.every().monday.at("7:00").do(send_conversion_notifications)
     schedule.every().thursday.at("7:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())

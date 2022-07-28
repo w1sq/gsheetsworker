@@ -77,20 +77,19 @@ async def send_conversion(message):
 @dp.message_handler(text='Товары')
 async def send_items(message):
     keyb= InlineKeyboardMarkup()
-    for product in google_sheets.products:
-        keyb.add(InlineKeyboardButton(text=product,callback_data=f'show_product |{product}'))
+    for product_id in range(len(google_sheets.products)):
+        keyb.add(InlineKeyboardButton(text=google_sheets.products[product_id],callback_data=f'show_product |{product_id}'))
     keyb.add(InlineKeyboardButton(text='Вывести все товары',callback_data=f'show_product |all'))
     await message.answer('Выберите товар:',reply_markup=keyb)
 
-
 async def show_product(call):
-    name = call.data.split('|')[1]
+    product_id = call.data.split('|')[1]
     await bot.send_chat_action(call.message.chat.id,'typing')
-    if name =='all':
-        for product in google_sheets.products:
+    if product_id =='all':
+        for product in google_sheets.keys_coords.keys():
             await call.message.answer(google_sheets.get_item(product))
     else:
-        await call.message.answer(google_sheets.get_item(name))
+        await call.message.answer(google_sheets.get_item(google_sheets.products[int(product_id)]))
 
 @dp.message_handler(text='Маркетплейсы')
 async def send_markets(message):
@@ -475,10 +474,10 @@ async def check_schedule():
 if __name__ == '__main__':
     print('Bot has started')
     loop = asyncio.get_event_loop()
-    schedule.every().day.at("8:00").do(send_main_notifications)
-    schedule.every().day.at("10:00").do(send_supply_notifications)
+    schedule.every().day.at("11:00").do(send_main_notifications)
+    schedule.every().day.at("13:00").do(send_supply_notifications)
     schedule.every(5).minutes.do(send_limits_notifications)
-    schedule.every().monday.at("7:00").do(send_conversion_notifications)
-    schedule.every().thursday.at("7:00").do(send_conversion_notifications)
+    schedule.every().monday.at("10:00").do(send_conversion_notifications)
+    schedule.every().thursday.at("10:00").do(send_conversion_notifications)
     loop.create_task(check_schedule())
     loop.run_until_complete(main())
